@@ -5,7 +5,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 
-const REPO = "grzesiekpuszka/lokal.dev";
+const REPO = "grzesiekpuszka/lokaldev";
 const token = process.env.GITHUB_TOKEN;
 if (!token) throw new Error("Set GITHUB_TOKEN (a token with Contents: read and write for the repository).");
 

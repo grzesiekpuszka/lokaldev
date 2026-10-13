@@ -11,7 +11,7 @@ import { exists, p, ROOT, versionKey } from "./util";
 import { COMPONENTS, installedSeries } from "./versions";
 import { t } from "../src/i18n";
 
-const REPO = "grzesiekpuszka/lokal.dev";
+const REPO = "grzesiekpuszka/lokaldev";
 const DIR = p("tmp", "update");
 const STATE = p("updates.json");
 const DAY = 24 * 60 * 60 * 1000;
