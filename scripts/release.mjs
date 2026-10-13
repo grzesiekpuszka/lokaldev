@@ -63,4 +63,6 @@ for (const [file, type] of [[zip, "application/zip"], [`${zip}.sha256`, "text/pl
   });
   if (!r.ok) throw new Error(`Uploading ${path.basename(file)} failed: HTTP ${r.status} ${await r.text()}`);
 }
+// the published zip is the package; the local build isn't used for anything else
+fs.rmSync("release", { recursive: true, force: true });
 console.log(`Published ${release.html_url}`);
