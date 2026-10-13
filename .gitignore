@@ -6,3 +6,4 @@ resources/shim.exe
 *.log
 www
 databases
+RELEASING.md

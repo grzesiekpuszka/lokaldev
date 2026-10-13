@@ -1,5 +1,4 @@
 // pnpm release [notes.md]: builds, zips release/win-unpacked and publishes it as a GitHub release (needs GITHUB_TOKEN).
-// Notes default to the commit subjects since the previous tag.
 import { execFileSync, execSync } from "node:child_process";
 import crypto from "node:crypto";
 import fs from "node:fs";
@@ -33,7 +32,9 @@ execFileSync(tar, ["-a", "-c", "-f", zip, "-C", dir, ...entries], { stdio: "inhe
 const hash = crypto.createHash("sha256").update(fs.readFileSync(zip)).digest("hex");
 fs.writeFileSync(`${zip}.sha256`, `${hash}  ${name}\n`);
 
-let notes = process.argv[2] && fs.readFileSync(process.argv[2], "utf8");
+// notes: the given file, else notes/v<version>.md, else the commit subjects since the previous tag
+const notesFile = process.argv[2] ?? (fs.existsSync(`notes/${tag}.md`) ? `notes/${tag}.md` : null);
+let notes = notesFile && fs.readFileSync(notesFile, "utf8");
 if (!notes) {
   let previous = "";
   try {
