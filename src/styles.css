@@ -1,0 +1,131 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --c-bg: #f7f7f8;
+  --c-surface: #ffffff;
+  --c-surface-2: #f1f1f3;
+  --c-border: #e7e7ea;
+  --c-text: #1c1c1f;
+  --c-muted: #6b6b73;
+  --c-accent: #0067c0;
+  --c-accent-hover: #005a9e;
+  --c-accent-soft: #e8f2fc;
+  --c-on-accent: #ffffff;
+  --c-success: #15803d;
+  --c-success-soft: #e3f6e9;
+  --c-warning: #b45309;
+  --c-warning-soft: #fdf1dc;
+  --c-danger: #c42b1c;
+  --c-danger-soft: #fde8e6;
+  --c-idle-soft: #eeeef1;
+  --c-laravel: #e5483a;
+  --c-symfony: #3f3f46;
+  --c-wordpress: #2271b1;
+  --c-node: #3c8a2e;
+  --c-python: #2f6aa3;
+  --c-php: #6d5bd0;
+  color-scheme: light;
+}
+
+.dark {
+  --c-bg: #1b1b1d;
+  --c-surface: #242427;
+  --c-surface-2: #2c2c30;
+  --c-border: #36363b;
+  --c-text: #f4f4f5;
+  --c-muted: #a1a1aa;
+  --c-accent: #4cc2ff;
+  --c-accent-hover: #62cdff;
+  --c-accent-soft: #1c3445;
+  --c-on-accent: #000000;
+  --c-success: #4ade80;
+  --c-success-soft: #173a25;
+  --c-warning: #fbbf24;
+  --c-warning-soft: #3d2f12;
+  --c-danger: #ff8a80;
+  --c-danger-soft: #45201d;
+  --c-idle-soft: #2f2f34;
+  --c-laravel: #ff7a6b;
+  --c-symfony: #d4d4d8;
+  --c-wordpress: #6aa8e0;
+  --c-node: #7cc96b;
+  --c-python: #7fb2e5;
+  --c-php: #a99cf0;
+  color-scheme: dark;
+}
+
+@theme {
+  --color-bg: var(--c-bg);
+  --color-surface: var(--c-surface);
+  --color-surface-2: var(--c-surface-2);
+  --color-line: var(--c-border);
+  --color-fg: var(--c-text);
+  --color-muted: var(--c-muted);
+  --color-accent: var(--c-accent);
+  --color-accent-hover: var(--c-accent-hover);
+  --color-accent-soft: var(--c-accent-soft);
+  --color-on-accent: var(--c-on-accent);
+  --color-success: var(--c-success);
+  --color-success-soft: var(--c-success-soft);
+  --color-warning: var(--c-warning);
+  --color-warning-soft: var(--c-warning-soft);
+  --color-danger: var(--c-danger);
+  --color-danger-soft: var(--c-danger-soft);
+  --color-idle-soft: var(--c-idle-soft);
+  --font-sans: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "Cascadia Mono", Consolas, ui-monospace, monospace;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-size: 14px;
+  background: var(--c-bg);
+  color: var(--c-text);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+input,
+textarea,
+pre,
+code {
+  user-select: text;
+}
+
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--c-accent);
+    outline-offset: 1px;
+  }
+}
+
+@layer components {
+  .input {
+    @apply h-9 w-full rounded-lg border border-line bg-surface px-3 text-fg outline-none placeholder:text-muted/70 disabled:opacity-60;
+  }
+
+  .input:focus {
+    border-color: var(--c-accent);
+    box-shadow: 0 0 0 3px var(--c-accent-soft);
+    outline: none;
+  }
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--c-muted) 40%, transparent);
+  border-radius: 8px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}

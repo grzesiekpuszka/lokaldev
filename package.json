@@ -1,0 +1,63 @@
+{
+  "name": "lokal",
+  "private": true,
+  "version": "1.0.0-beta.1",
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm build:shim && node scripts/dev.mjs",
+    "build:shim": "node scripts/build-shim.mjs",
+    "build:main": "esbuild electron/main.ts electron/preload.ts --bundle --platform=node --format=cjs --external:electron --outdir=out --out-extension:.js=.cjs",
+    "build": "pnpm build:shim && tsc --noEmit && vite build && pnpm build:main",
+    "dist": "pnpm build && electron-builder --win dir",
+    "icon": "electron scripts/icon.cjs",
+    "release": "node scripts/release.mjs"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "^26.6.5",
+    "@types/node-forge": "^1.3.14",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "electron": "^44.7.0",
+    "electron-builder": "^26.15.3",
+    "esbuild": "^0.28.2",
+    "node-forge": "^1.4.0",
+    "tailwindcss": "^4.3.3",
+    "typescript": "~6.0.3",
+    "vite": "^8.0.16",
+    "lucide-react": "^1.55.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "main": "out/main.cjs",
+  "description": "Portable PHP/Node dev environment",
+  "author": "lokaldev",
+  "build": {
+    "appId": "dev.lokal.app",
+    "productName": "lokaldev",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "out/**",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "resources/shim.exe",
+        "to": "shim.exe"
+      },
+      {
+        "from": "resources/icon.ico",
+        "to": "icon.ico"
+      }
+    ],
+    "win": {
+      "target": "dir",
+      "icon": "resources/icon.ico"
+    },
+    "asar": true,
+    "electronDist": "node_modules/electron/dist"
+  }
+}

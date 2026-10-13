@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#3a7bea"/><stop offset="1" stop-color="#1d4fb8"/>
+    </linearGradient>
+  </defs>
+  <rect x="40" y="40" width="944" height="944" rx="228" fill="url(#bg)"/>
+  <!-- lokal-icon.svg sygnet in white, the lower layers fading back -->
+  <g transform="translate(24.5 5) scale(0.78)">
+    <path fill="#fff" fill-opacity=".55" d="M287 796 Q306 785 319 793 L561 920 Q623 951 684 918 L935 787 Q941 784 948 789 L993 812 Q1028 830 1030 858 Q1033 888 996 911 L676 1086 Q627 1113 578 1086 L259 913 Q219 892 218 861 Q217 833 250 812 Z"/>
+    <path fill="#fff" fill-opacity=".8" d="M315 580 Q335 568 347 575 L523 672 Q568 698 611 682 L807 576 Q848 555 882 575 L992 635 Q1030 654 1030 681 Q1031 711 996 731 L681 893 Q628 922 573 893 L257 732 Q216 710 218 677 Q218 647 249 628 Z"/>
+    <path fill="#fff" d="M577 210 Q626 186 678 211 L991 383 Q1028 404 1030 433 Q1033 466 992 489 L898 539 Q863 521 827 531 Q814 534 800 542 L616 639 Q582 656 544 637 L259 489 Q219 468 217 436 Q216 408 253 384 Z"/>
+  </g>
+</svg>
