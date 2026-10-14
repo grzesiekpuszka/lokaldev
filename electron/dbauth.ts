@@ -4,6 +4,7 @@ import type { DbFamily } from "../src/api";
 import { config, saveConfig } from "./config";
 import { instanceBin, type Instance } from "./instances";
 import { run } from "./util";
+import { t } from "../src/i18n";
 import { seriesDataDir, seriesDir } from "./versions";
 
 export type Creds = { user: string; password: string };
@@ -20,13 +21,11 @@ export function wanted(family: DbFamily): Creds {
 export const applied = (inst: Pick<Instance, "id" | "family">): Creds => config().db_applied[inst.id] ?? DEFAULTS[inst.family];
 
 /** Client arguments / environment that log in to an instance. */
-export function mysqlLogin(inst: Instance) {
-  const c = applied(inst);
+export function mysqlLogin(inst: Instance, c = applied(inst)) {
   // --no-defaults (must come first): the [client] section written for terminals must not override this login
   return ["--no-defaults", `--user=${c.user}`, ...(c.password ? [`--password=${c.password}`] : []), "-h127.0.0.1", `-P${inst.port}`];
 }
-export function pgEnv(inst: Instance) {
-  const c = applied(inst);
+export function pgEnv(inst: Instance, c = applied(inst)) {
   return { ...process.env, PGUSER: c.user, PGPASSWORD: c.password, PGHOST: "127.0.0.1", PGPORT: String(inst.port) };
 }
 
@@ -40,11 +39,11 @@ export function writeClientIni(inst: Instance) {
 const my = (s: string) => `'${s.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}'`;
 const pg = (s: string) => `'${s.replace(/'/g, "''")}'`;
 
-async function query(inst: Instance, sql: string) {
+async function query(inst: Instance, sql: string, as = applied(inst)) {
   const r =
     inst.family === "postgres"
-      ? await run(instanceBin(inst, "psql"), ["-w", "-d", "postgres", "-At", "-v", "ON_ERROR_STOP=1", "-c", sql], { env: pgEnv(inst) })
-      : await run(instanceBin(inst, "mysql"), [...mysqlLogin(inst), "-N", "-B", "-e", sql]);
+      ? await run(instanceBin(inst, "psql"), ["-w", "-d", "postgres", "-At", "-v", "ON_ERROR_STOP=1", "-c", sql], { env: pgEnv(inst, as) })
+      : await run(instanceBin(inst, "mysql"), [...mysqlLogin(inst, as), "-N", "-B", "-e", sql]);
   if (r.code) throw new Error(r.out.trim());
   return r.stdout.split(/\r?\n/).filter(Boolean);
 }
@@ -57,6 +56,8 @@ function setPgAuth(inst: Instance, method: "trust" | "scram-sha-256") {
   fs.writeFileSync(file, out.join("\n"));
 }
 
+const works = (inst: Instance, c: Creds) => query(inst, "SELECT 1", c).then(() => true, () => false);
+
 function remember(inst: Instance, c: Creds) {
   const cfg = config();
   saveConfig({ ...cfg, db_applied: { ...cfg.db_applied, [inst.id]: c } });
@@ -66,21 +67,26 @@ function remember(inst: Instance, c: Creds) {
 export async function applyCredentials(inst: Instance) {
   const want = wanted(inst.family);
   const done = () => applied(inst).user === want.user && applied(inst).password === want.password;
-  // a change interrupted after the server got the new login leaves the old one unusable
-  if (!done() && !(await query(inst, "SELECT 1").then(() => true, () => false))) remember(inst, want);
+  // a change interrupted after the server got the new login: the old one fails, the new one works
+  if (!done() && !(await works(inst, applied(inst)))) {
+    if (!(await works(inst, want))) throw new Error(t("Can't log in to {name} with the saved or the new login", { name: inst.id }));
+    remember(inst, want);
+  }
   const have = applied(inst);
   if (!done()) {
     if (inst.family === "mysql") {
-      if (want.user === "root") {
-        for (const host of await query(inst, "SELECT host FROM mysql.user WHERE user = 'root'")) {
-          await query(inst, `ALTER USER 'root'@${my(host)} IDENTIFIED BY ${my(want.password)}`);
-        }
-      } else {
-        for (const host of ["localhost", "%"]) {
-          const account = `${my(want.user)}@${my(host)}`;
-          await query(inst, `CREATE USER IF NOT EXISTS ${account}; ALTER USER ${account} IDENTIFIED BY ${my(want.password)}; GRANT ALL PRIVILEGES ON *.* TO ${account} WITH GRANT OPTION`);
-        }
-      }
+      // one session for all accounts: after the first ALTER a new connection could need the new password already
+      const accounts =
+        want.user === "root"
+          ? (await query(inst, "SELECT host FROM mysql.user WHERE user = 'root'")).map((host) => `'root'@${my(host)}`)
+          : ["localhost", "%"].map((host) => `${my(want.user)}@${my(host)}`);
+      await query(
+        inst,
+        accounts
+          .map((a) => (want.user === "root" ? "" : `CREATE USER IF NOT EXISTS ${a}; `) + `ALTER USER ${a} IDENTIFIED BY ${my(want.password)}` + (want.user === "root" ? "" : `; GRANT ALL PRIVILEGES ON *.* TO ${a} WITH GRANT OPTION`))
+          .join("; "),
+      );
+      if (!(await works(inst, want))) throw new Error(t("Can't log in to {name} with the new login", { name: inst.id }));
       remember(inst, want);
       if (have.user !== "root" && have.user !== want.user) await query(inst, `DROP USER IF EXISTS ${my(have.user)}@'localhost', ${my(have.user)}@'%'`);
     } else {
@@ -94,6 +100,7 @@ export async function applyCredentials(inst: Instance) {
       remember(inst, want);
       setPgAuth(inst, want.password ? "scram-sha-256" : "trust");
       await query(inst, "SELECT pg_reload_conf()");
+      if (!(await works(inst, want))) throw new Error(t("Can't log in to {name} with the new login", { name: inst.id }));
     }
   }
   if (inst.family === "mysql") writeClientIni(inst);

@@ -437,6 +437,8 @@ const pl: Record<string, string> = {
   "Default": "Domyślny",
   "Default — {name}": "Domyślny — {name}",
   "Project settings saved.": "Zapisano ustawienia projektu.",
+  "Can't log in to {name} with the saved or the new login": "Nie można zalogować się do {name} ani zapisanym, ani nowym loginem",
+  "Can't log in to {name} with the new login": "Nie można zalogować się do {name} nowym loginem",
   "Created on save when it changes.": "Po zmianie zostanie utworzona przy zapisie.",
   ".env is updated on save.": ".env zostanie zaktualizowany po zapisaniu.",
   "wp-config.php is updated on save.": "wp-config.php zostanie zaktualizowany po zapisaniu.",
