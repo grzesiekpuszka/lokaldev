@@ -75,7 +75,8 @@ export default function NewProject() {
   const noDbName = database === "none" || database === "sqlite";
   const kindLabel = type === "empty" ? t("Empty project") : typeLabels[type];
   const noWeb = !components.apache && !components.nginx;
-  const noPhp = !app && !snap.php.length;
+  const needsPhp = !app && type !== "empty"; // an empty project can be a static site
+  const noPhp = needsPhp && !snap.php.length;
   const noPython = type === "python" && !snap.installed.python.length;
 
   const chooseType = (type: Kind) => {
@@ -99,7 +100,7 @@ export default function NewProject() {
 
   const valid = [
     true,
-    !!spec.name && !!spec.path && (app || !!snap.php.length) && (!app || nodePort > 0),
+    !!spec.name && !!spec.path && !noPhp && (!app || nodePort > 0),
     database === "none" || database === "sqlite" || /^[a-z0-9_]+$/.test(spec.db_name),
     /^[a-z0-9.-]+$/i.test(spec.domain),
     !noWeb && !noPhp && !noPython,

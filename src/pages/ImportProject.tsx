@@ -20,6 +20,13 @@ export default function ImportProject({ dir, onClose }: { dir: string; onClose: 
   const [ssl, setSsl] = useState(config.ssl_default);
   const [nodePort, setNodePort] = useState(3000);
   const [nodeCmd, setNodeCmd] = useState("npm run dev");
+  const [appEdited, setAppEdited] = useState(false);
+  // Python and Node.js apps start differently; kept once edited by hand
+  useEffect(() => {
+    if (appEdited) return;
+    setNodePort(type === "python" ? 8000 : 3000);
+    setNodeCmd(type === "python" ? "python app.py" : "npm run dev");
+  }, [type]);
 
   useEffect(() => {
     api
@@ -130,9 +137,9 @@ export default function ImportProject({ dir, onClose }: { dir: string; onClose: 
           {isNode && (
             <>
               <Field label={t("App port")}>
-                {(id) => <input id={id} type="number" min={1} max={65535} className="input" value={nodePort} onChange={(e) => setNodePort(Number(e.target.value))} />}
+                {(id) => <input id={id} type="number" min={1} max={65535} className="input" value={nodePort} onChange={(e) => (setNodePort(Number(e.target.value)), setAppEdited(true))} />}
               </Field>
-              <Field label={t("Start command")}>{(id) => <input id={id} className="input font-mono" value={nodeCmd} onChange={(e) => setNodeCmd(e.target.value)} />}</Field>
+              <Field label={t("Start command")}>{(id) => <input id={id} className="input font-mono" value={nodeCmd} onChange={(e) => (setNodeCmd(e.target.value), setAppEdited(true))} />}</Field>
             </>
           )}
           <div className="flex items-center gap-3 sm:col-span-2">

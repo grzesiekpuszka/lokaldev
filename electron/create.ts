@@ -132,7 +132,7 @@ export async function createProject(spec: CreateSpec) {
         );
         fs.writeFileSync(
           path.join(dir, "index.js"),
-          `const http = require("node:http");\nconst port = process.env.PORT || ${spec.node_port};\n\nhttp\n  .createServer((req, res) => res.end("Hello from ${spec.name}"))\n  .listen(port, () => console.log(\`Listening on \${port}\`));\n`,
+          `const http = require("node:http");\nconst port = process.env.PORT || ${spec.node_port};\n\nhttp\n  .createServer((req, res) => res.end(${JSON.stringify(`Hello from ${spec.name}`)}))\n  .listen(port, () => console.log(\`Listening on \${port}\`));\n`,
         );
         break;
       case "python":
@@ -149,7 +149,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", "text/plain; charset=utf-8")
         self.end_headers()
-        self.wfile.write(b"Hello from ${spec.name.replace(/[\\"]/g, "")}")
+        self.wfile.write(${JSON.stringify(`Hello from ${spec.name}`)}.encode())
 
 
 port = int(os.environ.get("PORT", ${spec.node_port}))

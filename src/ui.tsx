@@ -286,7 +286,7 @@ export function DatabaseSelect({ id, value, type, none, onChange }: { id: string
       <option value="">{defaultLabel(def && `${dbName(def)} (:${def.port})`)}</option>
       {!known && <option value={value}>{value} — {t("not installed")}</option>}
       {(type === "laravel" || type === "symfony") && <option value="sqlite">SQLite</option>}
-      {snap.instances.filter((x) => x !== def).map((x) => <option key={x.id} value={x.id}>{dbName(x)} (:{x.port})</option>)}
+      {snap.instances.map((x) => <option key={x.id} value={x.id}>{dbName(x)} (:{x.port})</option>)}
     </Select>
   );
 }

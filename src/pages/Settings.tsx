@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Download, FolderOpen, Info, RefreshCw, RotateCcw, Save, ShieldCheck } from "lucide-react";
 import { version } from "../../package.json";
 import logo from "../../resources/icon.svg";
@@ -134,15 +134,22 @@ function General() {
 /** Services started on launch: all by default, so newly installed ones are included until switched off. */
 function LaunchServices() {
   const { snap, setConfig } = useApp();
-  const skip = snap.config.launch_skip;
+  // local copy: quick clicks build on each other instead of on a snapshot the first save hasn't updated yet
+  const [skip, setSkip] = useState(snap.config.launch_skip);
+  const saved = JSON.stringify(snap.config.launch_skip);
+  useEffect(() => setSkip(snap.config.launch_skip), [saved]);
+  const save = (next: string[]) => {
+    setSkip(next);
+    setConfig({ launch_skip: next });
+  };
   const list = snap.services.filter((s) => s.installed && s.id !== "pgadmin");
   const all = list.every((s) => !skip.includes(s.id));
-  const toggle = (id: string, on: boolean) => setConfig({ launch_skip: on ? skip.filter((x) => x !== id) : [...skip, id] });
+  const toggle = (id: string, on: boolean) => save(on ? skip.filter((x) => x !== id) : [...skip, id]);
   return (
     <ul className="border-b border-line bg-surface-2/50 py-1 pr-4 pl-8">
       <li className="flex items-center justify-between py-2 font-medium">
         {t("All services")}
-        <Toggle label={t("All services")} checked={all} onChange={(on) => setConfig({ launch_skip: on ? [] : list.map((s) => s.id) })} />
+        <Toggle label={t("All services")} checked={all} onChange={(on) => save(on ? [] : list.map((s) => s.id))} />
       </li>
       {list.map((s) => (
         <li key={s.id} className="flex items-center justify-between border-t border-line py-2 text-[13px]">
