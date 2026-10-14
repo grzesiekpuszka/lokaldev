@@ -121,6 +121,15 @@ export function detect(dir: string, docroot?: string): { type: ProjectType; docr
   return { type: "custom", docroot: start };
 }
 
+/** A project domain in lowercase: DNS labels only, not localhost (lokaldev's own site). */
+export function checkDomain(domain: string) {
+  const d = domain.trim().toLowerCase();
+  if (d === "localhost" || d.length > 253 || !d.split(".").every((l) => /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/.test(l))) {
+    throw new Error(t("Invalid domain: {domain}", { domain }));
+  }
+  return d;
+}
+
 /** A document root is a folder inside the project, relative to it. */
 export function checkDocroot(docroot: string) {
   const rel = path.normalize(docroot || ".");

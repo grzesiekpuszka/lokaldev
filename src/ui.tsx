@@ -196,7 +196,8 @@ export function DocrootInput({ id, base, value, onChange }: { id: string; base: 
     if (!dir) return;
     const norm = (s: string) => s.replace(/\//g, "\\").replace(/\\+$/, "");
     const root = norm(base);
-    if (!norm(dir).toLowerCase().startsWith(root.toLowerCase())) return toast(t("The document root must be inside the project folder."));
+    const picked = norm(dir).toLowerCase();
+    if (picked !== root.toLowerCase() && !picked.startsWith(`${root.toLowerCase()}\\`)) return toast(t("The document root must be inside the project folder."));
     onChange(norm(dir).slice(root.length).replace(/^\\+/, "").replace(/\\/g, "/"));
   };
   return (

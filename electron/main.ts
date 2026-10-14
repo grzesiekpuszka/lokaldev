@@ -3,7 +3,7 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import type { ComponentId, Config, CreateSpec, DbEngine, JsTool, PortKey, Project, ProjectSettings, ServiceId, Snapshot, WebServer } from "../src/api";
-import { checkDocroot, config, defaultDbName, defaultPhp, detect, fileDbName, installedPhp, norm, port, projects, saveConfig, timezone } from "./config";
+import { checkDocroot, checkDomain, config, defaultDbName, defaultPhp, detect, fileDbName, installedPhp, norm, port, projects, saveConfig, timezone } from "./config";
 import { createProject } from "./create";
 import { databases, dbCreate, dbDrop, requireInstance } from "./db";
 import { familyOf, instance, parseInstance, projectInstanceId, usedInstanceIds } from "./instances";
@@ -86,6 +86,8 @@ function setConfig(patch: Partial<Config>) {
       patch = { ...patch, db_dir: norm(dir).toLowerCase() === norm(DEFAULT_DB_ROOT).toLowerCase() ? "" : dir };
     }
     const next: Config = { ...prev, ...patch, versions: { ...prev.versions, ...patch.versions }, ports: { ...prev.ports, ...patch.ports } };
+    next.tld = next.tld.trim().toLowerCase();
+    if (!/^[a-z0-9-]+$/.test(next.tld)) throw new Error(t("Invalid domain: {domain}", { domain: next.tld }));
     const ports = Object.values(next.ports);
     if (ports.some((x) => !Number.isInteger(x) || x < 1 || x > 65535)) throw new Error(t("Ports must be numbers from 1 to 65535"));
     const twice = ports.find((x, i) => ports.indexOf(x) !== i);
@@ -191,7 +193,7 @@ async function stopUsers(what: string, series: string) {
 }
 
 function assertDomainFree(domain: string | undefined, dir: string) {
-  const owner = domain && projects().find((x) => x.domain === domain && x.path !== dir);
+  const owner = domain && projects().find((x) => x.domain.toLowerCase() === domain && x.path !== dir);
   if (owner) throw new Error(t("Domain {domain} is already used by project {name}", { domain: domain!, name: owner.name }));
 }
 
@@ -209,6 +211,7 @@ function setProject(dir: string, settings: ProjectSettings) {
   return serial(async () => {
     const cfg = config();
     const key = norm(dir);
+    if (settings.domain !== undefined) settings = { ...settings, domain: checkDomain(settings.domain) };
     assertDomainFree(settings.domain, key);
     if (settings.docroot !== undefined) checkDocroot(settings.docroot);
     if (settings.node !== undefined) pinNode(key, settings.node);
@@ -269,6 +272,7 @@ const handlers: Record<string, (a: any) => unknown> = {
   },
   create_project: ({ spec }: { spec: CreateSpec }) =>
     serial(async () => {
+      spec = { ...spec, domain: checkDomain(spec.domain) };
       assertDomainFree(spec.domain, norm(spec.path));
       await createProject(spec);
       // an imported project gets its database the same way as a changed one in the project settings
