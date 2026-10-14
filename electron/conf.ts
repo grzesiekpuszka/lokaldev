@@ -43,12 +43,18 @@ function writeSites(server: string, sites: [Project, string][]) {
   }
 }
 
+function customFiles(server: string) {
+  try {
+    return fs.readdirSync(sitesDir(server)).filter((f) => !f.startsWith("auto.") && f !== "00-default.conf");
+  } catch {
+    return [];
+  }
+}
+
 /** Names and mtimes of hand-written site files; part of the "config is stale" check. */
 export function customStamp(server: string) {
   try {
-    return fs
-      .readdirSync(sitesDir(server))
-      .filter((f) => !f.startsWith("auto.") && f !== "00-default.conf")
+    return customFiles(server)
       .map((f) => `${f}:${fs.statSync(path.join(sitesDir(server), f)).mtimeMs}`)
       .join("|");
   } catch {
@@ -89,7 +95,11 @@ ProxyTimeout 300
     for (let i = 0; i < WORKERS; i++) s += `    BalancerMember "fcgi://127.0.0.1:${phpPort(v) + i}"\n`;
     s += "</Proxy>\n";
   }
-  s += `IncludeOptional "${fwd(sitesDir("apache"))}/*.conf"\n`;
+  // Apache takes the first vhost whose name or alias matches, so hand-written sites go before the auto files'
+  // *.<domain> aliases; the default (localhost) vhost stays first.
+  const custom = customFiles("apache").filter((f) => f.endsWith(".conf"));
+  custom.sort((a, b) => Number(b === "localhost.conf") - Number(a === "localhost.conf"));
+  for (const f of ["00-default.conf", ...custom, "auto.*.conf"]) s += `IncludeOptional "${fwd(sitesDir("apache"))}/${f}"\n`;
 
   writeSites(
     "apache",
