@@ -15,8 +15,6 @@ const REPO = "grzesiekpuszka/lokaldev";
 const DIR = p("tmp", "update");
 const STATE = p("updates.json");
 const DAY = 24 * 60 * 60 * 1000;
-// next to the exe but not part of the package: never moved by an update
-const KEEP = ["data", "www", "databases"];
 
 type Saved = Omit<UpdateState, "current" | "downloaded"> & { zip?: string; sha?: string; notified?: string };
 
@@ -117,48 +115,19 @@ export async function downloadUpdate() {
 }
 
 /**
- * Quits and lets a plain cmd script (no PowerShell — antivirus rule) swap the files once lokaldev has exited:
- * the app files the new package replaces go to data\tmp\update\backup, the new ones are copied in, the new exe starts. If anything
- * fails, the backup is put back and the old version starts.
+ * Quits and lets updater.exe (window-less, from shim/updater.cs) swap the files once lokaldev has exited: the entries
+ * the new package contains go to data\tmp\update\backup, the new ones are copied in, the new exe starts. If anything
+ * fails, the backup is put back and the old version starts. It runs from a copy, as the app folder gets replaced.
  */
 export function applyUpdate(running: string[]) {
   if (!downloaded()) throw new Error(t("Download the update first"));
   // services that run now start again in the new version
   fs.writeFileSync(path.join(DIR, "resume.json"), JSON.stringify(running));
-  const backup = path.join(DIR, "backup");
-  const keep = KEEP.map((d) => `if /i not "%%F"=="${d}"`).join(" ");
+  const updater = path.join(DIR, "updater.exe");
+  fs.copyFileSync(app.isPackaged ? path.join(process.resourcesPath, "updater.exe") : path.join(ROOT, "resources", "updater.exe"), updater);
   // the new version starts with the same arguments (e.g. --hidden), minus one-shot actions
-  const args = process.argv
-    .slice(1)
-    .filter((a) => !["--updated", "--update-failed", "--start-all", "--stop-all", "--quit"].includes(a))
-    .map((a) => ` "${a.replace(/%/g, "%%")}"`)
-    .join("");
-  const script = `@echo off
-setlocal
-set "ROOT=${ROOT}"
-set "NEW=${path.join(DIR, "app")}"
-set "BACKUP=${backup}"
-:wait
-rem ping as a sleep: timeout needs a console
-tasklist /FI "PID eq ${process.pid}" | find "${process.pid}" >nul && (ping -n 2 127.0.0.1 >nul & goto wait)
-ping -n 3 127.0.0.1 >nul
-if exist "%BACKUP%" rmdir /s /q "%BACKUP%"
-mkdir "%BACKUP%"
-rem only what the new package contains is replaced; folders the user keeps next to the exe stay
-for /f "delims=" %%F in ('dir /b /a "%NEW%"') do ${keep} if exist "%ROOT%\\%%F" (
-  move "%ROOT%\\%%F" "%BACKUP%\\" >nul || goto restore
-)
-robocopy "%NEW%" "%ROOT%" /E /R:3 /W:1 /NFL /NDL /NJH /NJS /NP >nul
-if errorlevel 8 goto restore
-start "" "%ROOT%\\lokaldev.exe" --updated${args}
-exit /b 0
-:restore
-robocopy "%BACKUP%" "%ROOT%" /E /R:3 /W:1 /NFL /NDL /NJH /NJS /NP >nul
-start "" "%ROOT%\\lokaldev.exe" --update-failed${args}
-`;
-  const file = path.join(DIR, "apply.cmd");
-  fs.writeFileSync(file, script.replace(/\n/g, "\r\n"));
-  spawn("cmd.exe", ["/d", "/c", file], { detached: true, stdio: "ignore", windowsHide: true }).unref();
+  const args = process.argv.slice(1).filter((a) => !["--updated", "--update-failed", "--start-all", "--stop-all", "--quit"].includes(a));
+  spawn(updater, [ROOT, path.join(DIR, "app"), path.join(DIR, "backup"), String(process.pid), ...args], { detached: true, stdio: "ignore" }).unref();
   app.quit();
 }
 

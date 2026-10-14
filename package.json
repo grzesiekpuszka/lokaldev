@@ -1,7 +1,7 @@
 {
   "name": "lokal",
   "private": true,
-  "version": "1.0.0-beta.2",
+  "version": "1.0.0-beta.3",
   "type": "module",
   "scripts": {
     "dev": "pnpm build:shim && node scripts/dev.mjs",
@@ -47,6 +47,10 @@
       {
         "from": "resources/shim.exe",
         "to": "shim.exe"
+      },
+      {
+        "from": "resources/updater.exe",
+        "to": "updater.exe"
       },
       {
         "from": "resources/icon.ico",

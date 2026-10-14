@@ -3,6 +3,7 @@ out
 release
 data
 resources/shim.exe
+resources/updater.exe
 *.log
 www
 databases
