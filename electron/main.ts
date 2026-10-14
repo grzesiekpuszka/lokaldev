@@ -17,7 +17,7 @@ import { installTool, jsTools, systemGit, uninstallTool } from "./tools";
 import { freshEnvWith, setUserEnv } from "./env";
 import { nodeDefault, nodeInstall, nodeReleases, nodeState, nodeUninstall, nvmInstall, pinNode } from "./node";
 import * as svc from "./services";
-import { pathEnabled, setPath, SHIMS, syncShims } from "./shims";
+import { composerHome, pathEnabled, setPath, SHIMS, syncShims } from "./shims";
 import { caTrusted, trustCa } from "./ssl";
 import { autoFile, customFile, sitesDir } from "./conf";
 import { cleanupOrphans, errorText, exists, p, ROOT } from "./util";
@@ -558,6 +558,8 @@ app.whenReady().then(async () => {
   migrateLayout();
   pickDbEngine();
   syncShims();
+  // PATH enabled before data\composer existed: set it up now
+  pathEnabled().then((on) => (on ? composerHome(true) : undefined)).catch((e) => console.error(e));
   createWindow(!process.argv.includes("--hidden"));
   createTray({
     show: showWindow,

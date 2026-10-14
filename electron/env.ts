@@ -89,10 +89,10 @@ export async function inUserPath(dir: string) {
   return (await regValue(USER, "Path")).split(";").some((x) => same(x, dir));
 }
 
-/** Adds (at the front) or removes a folder in the user PATH, keeping the rest of the value untouched. */
-export const setUserPath = (dir: string, enabled: boolean) =>
+/** Adds (at the front, or the end) or removes a folder in the user PATH, keeping the rest of the value untouched. */
+export const setUserPath = (dir: string, enabled: boolean, last = false) =>
   locked(async () => {
     const parts = (await regValue(USER, "Path")).split(";").filter((x) => x && !same(x, dir));
-    if (enabled) parts.unshift(dir);
+    if (enabled) last ? parts.push(dir) : parts.unshift(dir);
     await writeUserEnv("Path", parts.join(";"));
   });

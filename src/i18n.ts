@@ -337,8 +337,9 @@ const pl: Record<string, string> = {
   "Interface language": "Język interfejsu",
   "Command line": "Wiersz poleceń",
   "Add tools to the user PATH": "Dodaj narzędzia do PATH użytkownika",
-  "Inside a project folder, php, composer, mysql and psql use the version assigned to that project; elsewhere they use the default. nvm switches Node.js versions based on the .nvmrc file.":
-    "Polecenia php, composer, mysql i psql używają wersji przypisanej do projektu, gdy są uruchamiane w jego folderze, a poza nim — wersji domyślnej. Wersje Node.js przełącza nvm na podstawie pliku .nvmrc.",
+  "Inside a project folder, php, composer, mysql and psql use the version assigned to that project; elsewhere they use the default. nvm switches Node.js versions based on the .nvmrc file. Global Composer packages are kept in data\\composer and their commands are on the PATH.":
+    "Polecenia php, composer, mysql i psql używają wersji przypisanej do projektu, gdy są uruchamiane w jego folderze, a poza nim — wersji domyślnej. Wersje Node.js przełącza nvm na podstawie pliku .nvmrc. Globalne pakiety Composera są w data\\composer, a ich polecenia w PATH.",
+  "Couldn't install the global Composer packages": "Nie udało się zainstalować globalnych pakietów Composera",
   "Enable SSL by default": "Domyślnie włączaj SSL",
   "New projects get a certificate and an https:// address.": "Nowe projekty otrzymają certyfikat i adres https://.",
   "Local certificate authority": "Lokalny urząd certyfikacji",

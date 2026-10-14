@@ -2,11 +2,12 @@ import { app } from "electron";
 import fs from "node:fs";
 import path from "node:path";
 import { config, defaultPhp, port, projects } from "./config";
-import { inUserPath, setUserPath } from "./env";
+import { freshEnvWith, inUserPath, setUserEnv, setUserPath, userValue } from "./env";
 import { wanted, writeClientIni } from "./dbauth";
 import { allInstances, instance } from "./instances";
 import { binDir, seriesDir } from "./versions";
-import { exists, fwd, p, ROOT } from "./util";
+import { exists, fwd, p, ROOT, run } from "./util";
+import { t } from "../src/i18n";
 
 const TOOLS = [
   "php", "composer",
@@ -85,6 +86,49 @@ export function syncShims() {
 }
 
 export const pathEnabled = () => inUserPath(SHIMS);
-export const setPath = (enabled: boolean) => setUserPath(SHIMS, enabled);
+
+export async function setPath(enabled: boolean) {
+  await setUserPath(SHIMS, enabled);
+  await composerHome(enabled);
+}
+
+const COMPOSER_HOME = p("composer");
+
+/**
+ * With the PATH option, global Composer packages live in data\composer (user COMPOSER_HOME) and their commands
+ * (vendor\bin) are on the PATH. A COMPOSER_HOME set by the user is kept and never removed.
+ */
+export async function composerHome(enabled: boolean) {
+  const current = await userValue("COMPOSER_HOME");
+  const ours = !current || path.resolve(current).toLowerCase() === COMPOSER_HOME.toLowerCase();
+  const bin = path.join(current || COMPOSER_HOME, "vendor", "bin");
+  if (!enabled) {
+    if (!ours) return;
+    if (current) await setUserEnv("COMPOSER_HOME", null);
+    await setUserPath(bin, false);
+    return;
+  }
+  if (!(await inUserPath(bin))) await setUserPath(bin, true, true);
+  if (current) return;
+  await setUserEnv("COMPOSER_HOME", COMPOSER_HOME);
+  await adoptGlobals();
+}
+
+/** Installs the global packages of the default %APPDATA%\Composer again in data\composer (vendor holds absolute paths). */
+async function adoptGlobals() {
+  const old = path.join(process.env.APPDATA ?? "", "Composer");
+  if (!exists(path.join(old, "composer.json")) || exists(path.join(COMPOSER_HOME, "composer.json"))) return;
+  fs.mkdirSync(COMPOSER_HOME, { recursive: true });
+  for (const f of ["composer.json", "composer.lock", "config.json", "auth.json"]) {
+    if (exists(path.join(old, f))) fs.copyFileSync(path.join(old, f), path.join(COMPOSER_HOME, f));
+  }
+  const php = defaultPhp();
+  const phar = path.join(binDir("composer"), "composer.phar");
+  if (!php || !exists(phar)) return; // "composer global install" later does it
+  const phpDir = p("bin", "php", php);
+  const env = { ...(await freshEnvWith(phpDir, path.join(binDir("git"), "cmd"))), COMPOSER_HOME };
+  const r = await run(path.join(phpDir, "php.exe"), [phar, "global", "install", "--no-interaction"], { env });
+  if (r.code) throw new Error(`${t("Couldn't install the global Composer packages")}: ${r.out.trim().split("\n").pop()}`);
+}
 
 export { SHIMS };

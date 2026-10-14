@@ -258,7 +258,7 @@ function CommandLine() {
     <Card title={t("Command line")}>
       <SettingRow
         title={t("Add tools to the user PATH")}
-        desc={t("Inside a project folder, php, composer, mysql and psql use the version assigned to that project; elsewhere they use the default. nvm switches Node.js versions based on the .nvmrc file.")}
+        desc={t("Inside a project folder, php, composer, mysql and psql use the version assigned to that project; elsewhere they use the default. nvm switches Node.js versions based on the .nvmrc file. Global Composer packages are kept in data\\composer and their commands are on the PATH.")}
       >
         <Toggle label={t("Add tools to the user PATH")} checked={snap.path_enabled} disabled={busy.path} onChange={(v) => run("path", () => api.setPath(v))} />
       </SettingRow>

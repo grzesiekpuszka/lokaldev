@@ -1,7 +1,7 @@
 {
   "name": "lokal",
   "private": true,
-  "version": "1.0.0-beta.6",
+  "version": "1.0.0-beta.7",
   "type": "module",
   "packageManager": "pnpm@12.11.2",
   "scripts": {
