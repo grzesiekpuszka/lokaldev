@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from "react";
 import { ArrowLeft, ExternalLink, FileCode2, FolderOpen, FolderX, Lock, Play, Save, Square, SquareTerminal, Trash2 } from "lucide-react";
 import { api, type Project, type ProjectSettings, proxied } from "../api";
-import { Badge, Button, Card, DocrootInput, Empty, Field, Modal, PageHeader, Select, Toggle, TypeBadge, dbName, useApp } from "../ui";
+import { Badge, Button, Card, DatabaseSelect, DocrootInput, Empty, Field, Modal, PageHeader, Select, Toggle, TypeBadge, defaultLabel, defaultPhp, useApp } from "../ui";
 import { t } from "../i18n";
 
 export default function ProjectDetail({ path }: { path: string }) {
@@ -23,21 +23,22 @@ export default function ProjectDetail({ path }: { path: string }) {
 }
 
 function Detail({ project: p, back }: { project: Project; back: ReactNode }) {
-  const { snap, go, run, busy } = useApp();
+  const { snap, go, run, busy, toast } = useApp();
   const node = proxied(p.type);
+  const pinnedPhp = snap.config.projects[p.path]?.php ?? "";
+  const phpDefault = defaultPhp(snap);
   const [form, setForm] = useState<ProjectSettings>({
-    php: p.php || (snap.php.length ? "none" : ""), node: p.node, domain: p.domain, ssl: p.ssl, docroot: p.docroot, node_port: p.node_port, node_cmd: p.node_cmd, db: p.db, python: p.python,
+    php: snap.php.includes(pinnedPhp) ? pinnedPhp : "", node: p.node, db_name: p.db_name, domain: p.domain, ssl: p.ssl, docroot: p.docroot, node_port: p.node_port, node_cmd: p.node_cmd, db: p.db, python: p.python,
   });
   const [removing, setRemoving] = useState(false);
   const set = (patch: ProjectSettings) => setForm((f) => ({ ...f, ...patch }));
-  const defaultDb = snap.instances.find((x) => x.family === "mysql" && x.default);
-  const db = snap.instances.find((x) => x.id === form.db) ?? (!form.db ? defaultDb : undefined);
+  const db = snap.instances.find((x) => x.id === form.db) ?? (!form.db ? snap.instances.find((x) => x.family === "mysql" && x.default) : undefined);
   const synced = p.type === "laravel" || p.type === "symfony" || p.type === "wordpress";
   const nodeVersions = [...new Set([...snap.node.installed, ...(p.node ? [p.node] : [])])];
 
-  const save = () => {
+  const save = async () => {
     const { node_port, node_cmd, ...rest } = form;
-    run("save", () => api.setProject(p.path, node ? form : rest));
+    if (await run("save", () => api.setProject(p.path, node ? form : rest))) toast(t("Project settings saved."), true);
   };
 
   return (
@@ -67,13 +68,18 @@ function Detail({ project: p, back }: { project: Project; back: ReactNode }) {
 
       <Card title={t("Settings")} className="mb-4">
         <div className="grid gap-4 p-4 sm:grid-cols-2">
-          <Field label={t("Path")}>{(id) => <input id={id} className="input" value={p.path} readOnly />}</Field>
+          <div className="sm:col-span-2">
+            <Field label={t("Path")}>{(id) => <input id={id} className="input" value={p.path} readOnly />}</Field>
+          </div>
+          <Field label={t("Domain")}>{(id) => <input id={id} className="input" value={form.domain} onChange={(e) => set({ domain: e.target.value })} />}</Field>
+          <Field label={t("Document root")} hint={t("Relative to the project folder, e.g. public or public_html.")}>
+            {(id) => <DocrootInput id={id} base={p.path} value={form.docroot ?? ""} onChange={(docroot) => set({ docroot })} />}
+          </Field>
           {!node && (
             <Field label={t("PHP version")} hint={!snap.php.length && t("Install PHP in the Binaries tab.")}>
               {(id) => (
                 <Select id={id} value={form.php} onChange={(e) => set({ php: e.target.value })}>
-                  {!snap.php.length && <option value="">—</option>}
-                  {!!snap.php.length && <option value="none">{t("none")}</option>}
+                  <option value="">{defaultLabel(phpDefault && `PHP ${phpDefault}`)}</option>
                   {snap.php.map((v) => <option key={v} value={v}>PHP {v}</option>)}
                 </Select>
               )}
@@ -82,23 +88,11 @@ function Detail({ project: p, back }: { project: Project; back: ReactNode }) {
           <Field label={t("Node.js version")} hint={snap.node.nvm !== "ok" && t("Per-project versions require nvm for Windows 2.x (Binaries).")}>
             {(id) => (
               <Select id={id} value={form.node} disabled={snap.node.nvm !== "ok"} onChange={(e) => set({ node: e.target.value })}>
-                <option value="">{t("none")}</option>
+                <option value="">{defaultLabel(snap.node.default && `Node.js ${snap.node.default}`)}</option>
                 {nodeVersions.map((v) => <option key={v} value={v}>{v}</option>)}
               </Select>
             )}
           </Field>
-          {snap.installed.python.length > 0 && (
-            <Field label={t("Python version")} hint={t("Used by python and pip in this project's folder.")}>
-              {(id) => (
-                <Select id={id} value={form.python ?? ""} onChange={(e) => set({ python: e.target.value })}>
-                  <option value="none">{t("none")}</option>
-                  <option value="">{t("Default — {name}", { name: `Python ${snap.components.python ?? ""}` })}</option>
-                  {form.python && form.python !== "none" && !snap.installed.python.some((x) => x.series === form.python) && <option value={form.python}>{form.python} — {t("not installed")}</option>}
-                  {snap.installed.python.map((x) => <option key={x.series} value={x.series}>Python {x.version}</option>)}
-                </Select>
-              )}
-            </Field>
-          )}
           <Field
             label={t("Database server")}
             hint={
@@ -108,20 +102,22 @@ function Detail({ project: p, back }: { project: Project; back: ReactNode }) {
               `127.0.0.1:${db.port} · ${db.family === "postgres" ? snap.config.pg_user : snap.config.mysql_user}${synced ? ` · ${t(p.type === "wordpress" ? "wp-config.php is updated on save." : ".env is updated on save.")}` : ""}`
             }
           >
-            {(id) => (
-              <Select id={id} value={form.db ?? ""} onChange={(e) => set({ db: e.target.value })}>
-                <option value="none">{t("none")}</option>
-                <option value="">{defaultDb ? t("Default — {name}", { name: `${dbName(defaultDb)} (:${defaultDb.port})` }) : t("Default")}</option>
-                {form.db && form.db !== "sqlite" && form.db !== "none" && !db && <option value={form.db}>{form.db} — {t("not installed")}</option>}
-                {(p.type === "laravel" || p.type === "symfony") && <option value="sqlite">SQLite</option>}
-                {snap.instances.filter((x) => x !== defaultDb).map((x) => <option key={x.id} value={x.id}>{dbName(x)} (:{x.port})</option>)}
-              </Select>
-            )}
+            {(id) => <DatabaseSelect id={id} value={form.db ?? ""} type={p.type} onChange={(db) => set({ db })} />}
           </Field>
-          <Field label={t("Domain")}>{(id) => <input id={id} className="input" value={form.domain} onChange={(e) => set({ domain: e.target.value })} />}</Field>
-          <Field label={t("Document root")} hint={t("Relative to the project folder, e.g. public or public_html.")}>
-            {(id) => <DocrootInput id={id} base={p.path} value={form.docroot ?? ""} onChange={(docroot) => set({ docroot })} />}
+          <Field label={t("Database name")} hint={form.db !== "sqlite" && t("Created on save when it changes.")}>
+            {(id) => <input id={id} className="input" value={form.db === "sqlite" ? "" : form.db_name} disabled={form.db === "sqlite"} onChange={(e) => set({ db_name: e.target.value.trim() })} />}
           </Field>
+          {snap.installed.python.length > 0 && (
+            <Field label={t("Python version")} hint={t("Used by python and pip in this project's folder.")}>
+              {(id) => (
+                <Select id={id} value={form.python ?? ""} onChange={(e) => set({ python: e.target.value })}>
+                  <option value="">{defaultLabel(`Python ${snap.components.python ?? ""}`)}</option>
+                  {form.python && !snap.installed.python.some((x) => x.series === form.python) && <option value={form.python}>{form.python} — {t("not installed")}</option>}
+                  {snap.installed.python.map((x) => <option key={x.series} value={x.series}>Python {x.version}</option>)}
+                </Select>
+              )}
+            </Field>
+          )}
           {node && (
             <>
               <Field label={t("App port")}>

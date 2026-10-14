@@ -2,8 +2,8 @@ import { app, BrowserWindow, dialog, ipcMain, nativeTheme, shell } from "electro
 import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
-import type { ComponentId, Config, CreateSpec, DbEngine, JsTool, PortKey, ProjectSettings, ServiceId, Snapshot, WebServer } from "../src/api";
-import { config, defaultPhp, detect, installedPhp, norm, port, projects, saveConfig, timezone } from "./config";
+import type { ComponentId, Config, CreateSpec, DbEngine, JsTool, PortKey, Project, ProjectSettings, ServiceId, Snapshot, WebServer } from "../src/api";
+import { config, defaultDbName, defaultPhp, detect, fileDbName, installedPhp, norm, port, projects, saveConfig, timezone } from "./config";
 import { createProject } from "./create";
 import { databases, dbCreate, dbDrop, requireInstance } from "./db";
 import { familyOf, instance, parseInstance, projectInstanceId, usedInstanceIds } from "./instances";
@@ -189,6 +189,16 @@ function assertDomainFree(domain: string | undefined, dir: string) {
   if (owner) throw new Error(t("Domain {domain} is already used by project {name}", { domain: domain!, name: owner.name }));
 }
 
+/** Creates the project's database on its server (started if needed) and points the project's config at it. */
+async function useDatabase(x: Project) {
+  const id = x.db === "sqlite" ? null : projectInstanceId(x.db);
+  if (id && instance(id)) {
+    if (!svc.instanceRunning(id)) await svc.startInstance(id);
+    await dbCreate(id, x.db_name);
+  }
+  syncProjectDb(x, true);
+}
+
 function setProject(dir: string, settings: ProjectSettings) {
   return serial(async () => {
     const cfg = config();
@@ -197,18 +207,14 @@ function setProject(dir: string, settings: ProjectSettings) {
     if (settings.node !== undefined) pinNode(key, settings.node);
     const { node: _, ...rest } = settings;
     const dbChanged = settings.db !== undefined && (settings.db || "") !== (cfg.projects[key]?.db || "");
+    const nameChanged = settings.db_name !== undefined && settings.db_name !== projects().find((x) => x.path === key)?.db_name;
     // a new document root may hold another kind of app (e.g. WordPress in public_html)
     if (settings.docroot !== undefined && settings.docroot !== cfg.projects[key]?.docroot && cfg.projects[key]?.type) {
       rest.type = detect(key, settings.docroot).type;
     }
     saveConfig({ ...cfg, projects: { ...cfg.projects, [key]: { ...cfg.projects[key], ...rest } } });
     const project = projects().find((x) => x.path === key);
-    if (dbChanged && project) {
-      syncProjectDb(project, true);
-      // bring the chosen database up right away while the project is being worked on
-      const id = projectInstanceId(project.db);
-      if (svc.webRunning() && id && instance(id) && !svc.instanceRunning(id)) await svc.startInstance(id);
-    }
+    if ((dbChanged || nameChanged) && project) await useDatabase({ ...project, db_name: settings.db_name ?? project.db_name });
     await reloadIfStale();
   });
 }
@@ -240,11 +246,17 @@ const handlers: Record<string, (a: any) => unknown> = {
   state: () => state(),
   set_config: ({ patch }: { patch: Partial<Config> }) => setConfig(patch),
   set_project: ({ path, settings }: { path: string; settings: ProjectSettings }) => setProject(path, settings),
-  detect_project: ({ path: dir, docroot }: { path: string; docroot?: string }) => ({ ...detect(dir, docroot), name: path.basename(dir) }),
+  detect_project: ({ path: dir, docroot }: { path: string; docroot?: string }) => {
+    const d = detect(dir, docroot);
+    return { ...d, name: path.basename(dir), db_name: fileDbName(dir, d.type, d.docroot) || defaultDbName(path.basename(dir)) };
+  },
   create_project: ({ spec }: { spec: CreateSpec }) =>
     serial(async () => {
       assertDomainFree(spec.domain, norm(spec.path));
       await createProject(spec);
+      // an imported project gets its database the same way as a changed one in the project settings
+      const project = spec.import && spec.database !== "none" && projects().find((x) => x.path === norm(spec.path));
+      if (project) await useDatabase({ ...project, db_name: spec.db_name });
       syncShims();
       for (const s of svc.WEB_SERVERS) if (activeVersion(s)) await svc.startServer(s);
     }),

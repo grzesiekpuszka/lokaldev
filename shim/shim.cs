@@ -28,11 +28,6 @@ static class Shim
             Console.Error.WriteLine("lokaldev: " + tool + " is not installed");
             return 1;
         }
-        if (bin == "")
-        {
-            Console.Error.WriteLine("lokaldev: " + tool + " is set to none in this project");
-            return 1;
-        }
 
         // a value can also name the program itself (pip -> python.exe -m pip)
         string program = bin.EndsWith(".exe") ? bin : Path.Combine(bin, (kind == "php" ? "php" : tool) + ".exe");

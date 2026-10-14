@@ -33,14 +33,14 @@ export default function App() {
   const [page, setPage] = useState<Page>({ name: "dashboard" });
   const [busy, setBusy] = useState<Record<string, boolean>>({});
   const [progress, setProgress] = useState<Record<string, Progress>>({});
-  const [toasts, setToasts] = useState<{ id: number; msg: string }[]>([]);
+  const [toasts, setToasts] = useState<{ id: number; msg: string; ok?: boolean }[]>([]);
   const [systemDark, setSystemDark] = useState(darkQuery.matches);
   const lastError = useRef("");
 
-  const toast = useCallback((msg: string) => {
+  const toast = useCallback((msg: string, ok?: boolean) => {
     const id = Date.now() + Math.random();
-    setToasts((t) => [...t, { id, msg }]);
-    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 8000);
+    setToasts((t) => [...t, { id, msg, ok }]);
+    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), ok ? 3000 : 8000);
   }, []);
 
   const refresh = useCallback(async () => {
@@ -102,7 +102,7 @@ export default function App() {
   const toastView = (
     <div className="fixed right-4 bottom-4 z-50 flex w-96 flex-col gap-2" aria-live="polite">
       {toasts.map((item) => (
-        <div key={item.id} role="alert" className="flex items-start gap-2 rounded-lg border border-line border-l-4 border-l-danger bg-surface px-3 py-2.5 shadow-lg">
+        <div key={item.id} role={item.ok ? "status" : "alert"} className={cx("flex items-start gap-2 rounded-lg border border-line border-l-4 bg-surface px-3 py-2.5 shadow-lg", item.ok ? "border-l-success" : "border-l-danger")}>
           <p className="flex-1 text-[13px] break-words whitespace-pre-wrap select-text">{item.msg}</p>
           <button type="button" aria-label={t("Close")} className="text-muted hover:text-fg" onClick={() => setToasts((x) => x.filter((y) => y.id !== item.id))}>
             <X size={14} />

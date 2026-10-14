@@ -5,7 +5,7 @@ import {
   Newspaper, Settings2, XCircle, type LucideIcon,
 } from "lucide-react";
 import { api, onTaskLog, type CreateSpec } from "../api";
-import { Button, Field, Modal, Notice, PageHeader, Select, Toggle, cx, dbName as serverName, progressText, slug, typeColor, typeLabels, useApp } from "../ui";
+import { Button, Field, Modal, Notice, PageHeader, Select, Toggle, cx, dbName as serverName, defaultLabel, defaultPhp, progressText, slug, typeColor, typeLabels, useApp } from "../ui";
 import { t } from "../i18n";
 
 type Kind = CreateSpec["type"];
@@ -37,14 +37,16 @@ export default function NewProject() {
   const [importDir, setImportDir] = useState<string>();
   const [name, setName] = useState("");
   const [path, setPath] = useState<string>();
-  const defaultPhp = snap.php.includes(config.default_php) ? config.default_php : (snap.php.at(-1) ?? "");
-  const [php, setPhp] = useState(defaultPhp);
+  const [php, setPhp] = useState(""); // "" = the default PHP
+  const phpDefault = defaultPhp(snap);
+  // an empty project starts without a database, the others on the default server
+  const defaultDb = (type: Kind) => (type === "empty" ? "none" : (snap.instances.find((x) => x.family === "mysql" && x.default) ?? snap.instances[0])?.id ?? "none");
   const [node, setNode] = useState("");
   const [python, setPython] = useState("");
   const [nodePort, setNodePort] = useState(3000);
   const [nodeCmd, setNodeCmd] = useState("npm run dev");
   const [deps, setDeps] = useState(true);
-  const [database, setDatabase] = useState<CreateSpec["database"]>("none");
+  const [database, setDatabase] = useState<CreateSpec["database"]>(defaultDb("laravel"));
   const [dbName, setDbName] = useState<string>();
   const [domain, setDomain] = useState<string>();
   const [ssl, setSsl] = useState(config.ssl_default);
@@ -70,9 +72,10 @@ export default function NewProject() {
     install_deps: deps,
   };
 
+  const noDbName = database === "none" || database === "sqlite";
   const kindLabel = type === "empty" ? t("Empty project") : typeLabels[type];
   const noWeb = !components.apache && !components.nginx;
-  const noPhp = !app && type !== "empty" && !snap.php.length;
+  const noPhp = !app && !snap.php.length;
   const noPython = type === "python" && !snap.installed.python.length;
 
   const chooseType = (type: Kind) => {
@@ -81,10 +84,7 @@ export default function NewProject() {
     setNodeCmd(type === "python" ? "python app.py" : "npm run dev");
     setPath(undefined);
     setDocroot("");
-    setPhp(type === "empty" ? "none" : defaultPhp);
-    setPython(type === "empty" ? "none" : "");
-    const mysql = snap.instances.find((x) => x.family === "mysql" && x.default);
-    setDatabase((type === "laravel" || type === "wordpress") && mysql ? mysql.id : "none");
+    setDatabase(defaultDb(type));
   };
 
   const pickImport = async () => {
@@ -99,7 +99,7 @@ export default function NewProject() {
 
   const valid = [
     true,
-    !!spec.name && !!spec.path && (app || !!php) && (!app || nodePort > 0),
+    !!spec.name && !!spec.path && (app || !!snap.php.length) && (!app || nodePort > 0),
     database === "none" || database === "sqlite" || /^[a-z0-9_]+$/.test(spec.db_name),
     /^[a-z0-9.-]+$/i.test(spec.domain),
     !noWeb && !noPhp && !noPython,
@@ -186,7 +186,7 @@ export default function NewProject() {
                 <div className="space-y-1 md:col-span-2">
                   <p className="text-[13px] font-medium">{t("PHP version")}</p>
                   <div role="radiogroup" aria-label={t("PHP version")} className="flex flex-wrap gap-2">
-                    {[...(type === "empty" ? ["none"] : []), ...snap.php].map((v) => (
+                    {[...(snap.php.length ? [""] : []), ...snap.php].map((v) => (
                       <button
                         key={v}
                         type="button"
@@ -195,7 +195,7 @@ export default function NewProject() {
                         onClick={() => setPhp(v)}
                         className={cx("h-8 rounded-md border px-3.5 font-medium", php === v ? "border-accent bg-accent-soft text-accent" : "border-line hover:bg-surface-2")}
                       >
-                        {v === "none" ? t("none") : `PHP ${v}`}
+                        {v ? `PHP ${v}` : defaultLabel(phpDefault && `PHP ${phpDefault}`)}
                       </button>
                     ))}
                     {!snap.php.length && <span className="text-muted">{t("No PHP versions installed.")}</span>}
@@ -205,7 +205,7 @@ export default function NewProject() {
               <Field label={t("Node.js version")}>
                 {(id) => (
                   <Select id={id} value={node} disabled={snap.node.nvm !== "ok"} onChange={(e) => setNode(e.target.value)}>
-                    <option value="">{t("none")}</option>
+                    <option value="">{defaultLabel(snap.node.default && `Node.js ${snap.node.default}`)}</option>
                     {snap.node.installed.map((v) => <option key={v} value={v}>{v}</option>)}
                   </Select>
                 )}
@@ -214,8 +214,7 @@ export default function NewProject() {
                 <Field label={t("Python version")}>
                   {(id) => (
                     <Select id={id} value={python} onChange={(e) => setPython(e.target.value)}>
-                      {type !== "python" && <option value="none">{t("none")}</option>}
-                      <option value="">{t("Default — {name}", { name: `Python ${components.python ?? ""}` })}</option>
+                      <option value="">{defaultLabel(`Python ${components.python ?? ""}`)}</option>
                       {snap.installed.python.map((x) => <option key={x.series} value={x.series}>Python {x.version}</option>)}
                     </Select>
                   )}
@@ -261,13 +260,11 @@ export default function NewProject() {
                 <DbOption label="SQLite" note={t("a file in the project")} checked={database === "sqlite"} onClick={() => setDatabase("sqlite")} />
               )}
             </div>
-            {database !== "none" && database !== "sqlite" && (
-              <div className="max-w-sm">
-                <Field label={t("Database name")} hint={t("Lowercase letters, digits and underscores.")}>
-                  {(id) => <input id={id} className="input" value={spec.db_name} onChange={(e) => setDbName(e.target.value)} />}
-                </Field>
-              </div>
-            )}
+            <div className="max-w-sm">
+              <Field label={t("Database name")} hint={t("Lowercase letters, digits and underscores.")}>
+                {(id) => <input id={id} className="input" value={noDbName ? "" : spec.db_name} disabled={noDbName} onChange={(e) => setDbName(e.target.value)} />}
+              </Field>
+            </div>
           </>
         )}
 
@@ -299,9 +296,9 @@ export default function NewProject() {
                 [t("Type"), kindLabel],
                 [t("Name"), spec.name],
                 [t("Path"), spec.path],
-                ...(!app ? [["PHP", spec.php === "none" ? t("none") : spec.php || "—"]] : []),
-                ["Node.js", spec.node || t("none")],
-                ...(snap.installed.python.length ? [["Python", python === "none" ? t("none") : python || t("default")]] : []),
+                ...(!app ? [["PHP", spec.php || defaultLabel(phpDefault && `PHP ${phpDefault}`)]] : []),
+                ["Node.js", spec.node || defaultLabel(snap.node.default && `Node.js ${snap.node.default}`)],
+                ...(snap.installed.python.length ? [["Python", python || t("default")]] : []),
                 ...(app ? [[t("App"), `${nodeCmd} · port ${nodePort}`]] : []),
                 [t("Database"), database === "none" ? t("none") : database === "sqlite" ? "SQLite" : `${serverName(snap.instances.find((x) => x.id === database)!)} · ${spec.db_name}`],
                 [t("Address"), `${ssl ? "https" : "http"}://${spec.domain}`],

@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { proxied, type Project } from "../src/api";
-import { port } from "./config";
+import { port, wpConfig } from "./config";
 import { wanted } from "./dbauth";
 import { defaultInstanceId, instance, projectInstanceId, type Instance } from "./instances";
 import { exists } from "./util";
@@ -64,11 +64,11 @@ export const serverVersion = (inst: Instance) => (inst.engine === "postgres" ? i
 
 /**
  * Points a project's framework config at its database instance: Laravel and Symfony .env, WordPress wp-config.php.
- * Credentials are only reset when the project moves between MySQL-compatible and PostgreSQL.
+ * Credentials are only reset when the project moves between MySQL-compatible and PostgreSQL; the database name is
+ * written only when the user chose the database.
  */
 export function syncProjectDb(x: Project, chosen = false) {
   const pinned = !!x.db || chosen; // chosen: the user just picked this database (also "default") in the project settings
-  if (x.db === "none") return;
   if (x.db === "sqlite") return useSqlite(x);
   const inst = instance(projectInstanceId(x.db) ?? "");
   if (!inst) return;
@@ -89,23 +89,25 @@ export function syncProjectDb(x: Project, chosen = false) {
       DB_HOST: "127.0.0.1",
       DB_PORT: String(inst.port),
       ...(wasPostgres !== (inst.family === "postgres") ? { DB_USERNAME: user(inst), DB_PASSWORD: password(inst) } : {}),
+      ...(chosen ? { DB_DATABASE: x.db_name } : {}),
     });
   } else if (x.type === "symfony") {
     const env = path.join(x.path, ".env");
     const current = exists(env) ? fs.readFileSync(env, "utf8").match(/^DATABASE_URL="?([^"\r\n]*)"?/m)?.[1] : undefined;
     if (!current) return;
     const m = current.match(/^(\w+):\/\/([^@/]*)@[^/]*\/([^?]*)/);
-    const name = m?.[3] || path.basename(x.path).replace(/\W/g, "_");
+    const name = chosen ? x.db_name : m?.[3] || x.db_name;
     const sameFamily = !!m && (m[1].startsWith("postgres") === (inst.family === "postgres"));
     if (!pinned && !sameFamily) return;
     const scheme = inst.family === "postgres" ? "postgresql" : "mysql";
     const credentials = sameFamily ? m![2] : urlLogin(inst);
     setEnv(env, { DATABASE_URL: `"${scheme}://${credentials}@127.0.0.1:${inst.port}/${name}?serverVersion=${serverVersion(inst)}&charset=utf8mb4"` });
   } else if (x.type === "wordpress") {
-    const file = path.join(x.path, "wp-config.php");
+    const file = wpConfig(x.path, x.docroot);
     if (!exists(file)) return;
-    const s = fs.readFileSync(file, "utf8");
-    fs.writeFileSync(file, s.replace(/define\(\s*'DB_HOST'\s*,\s*'[^']*'\s*\)/, `define( 'DB_HOST', '127.0.0.1:${inst.port}' )`));
+    let s = fs.readFileSync(file, "utf8").replace(/define\(\s*'DB_HOST'\s*,\s*'[^']*'\s*\)/, `define( 'DB_HOST', '127.0.0.1:${inst.port}' )`);
+    if (chosen) s = s.replace(/define\(\s*'DB_NAME'\s*,\s*'[^']*'\s*\)/, `define( 'DB_NAME', '${x.db_name}' )`);
+    fs.writeFileSync(file, s);
   }
 }
 
@@ -122,7 +124,7 @@ type Uses = { db: string | null; mail: boolean; redis: boolean; memcached: boole
 
 /** Which database instance and other services a project uses, read from its settings and config files. */
 export function projectUses(x: Project): Uses {
-  const env = path.join(x.path, x.type === "wordpress" ? "wp-config.php" : ".env");
+  const env = x.type === "wordpress" ? wpConfig(x.path, x.docroot) : path.join(x.path, ".env");
   const s = exists(env) ? fs.readFileSync(env, "utf8") : "";
   const smtp = port("mailpit_smtp");
   let family: "mysql" | "postgres" | null = null;
@@ -144,7 +146,7 @@ export function projectUses(x: Project): Uses {
     family = scheme?.startsWith("postgres") ? "postgres" : scheme === "mysql" ? "mysql" : null;
     mail = s.includes(`smtp://127.0.0.1:${smtp}`);
   } else if (x.type === "wordpress") family = "mysql";
-  return { db: x.db === "none" ? null : x.db || (family && defaultInstanceId(family)), mail, ...other };
+  return { db: x.db || (family && defaultInstanceId(family)), mail, ...other };
 }
 
 /** "user" or "user:password" for a database URL. */
@@ -155,7 +157,7 @@ export const urlLogin = (inst: Instance) => [user(inst), password(inst)].filter(
  * Symfony DATABASE_URL, WordPress DB_USER/DB_PASSWORD. Projects with their own credentials are left alone.
  */
 export function syncProjectCredentials(x: Project, family: "mysql" | "postgres", from: { user: string; password: string }, to: { user: string; password: string }) {
-  const file = path.join(x.path, x.type === "wordpress" ? "wp-config.php" : ".env");
+  const file = x.type === "wordpress" ? wpConfig(x.path, x.docroot) : path.join(x.path, ".env");
   if (!exists(file)) return;
   let s = fs.readFileSync(file, "utf8");
   const pgsql = /^DB_CONNECTION=pgsql$/m.test(s);

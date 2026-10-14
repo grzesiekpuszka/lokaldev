@@ -3,8 +3,8 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import type { CreateSpec } from "../src/api";
-import { config, norm, port, saveConfig } from "./config";
-import { instance } from "./instances";
+import { config, defaultPhp, norm, port, saveConfig } from "./config";
+import { instance, projectInstanceId } from "./instances";
 import { wanted } from "./dbauth";
 import { password, serverVersion, setEnv, urlLogin, user } from "./projectdb";
 import { dbCreate } from "./db";
@@ -40,7 +40,7 @@ export async function createProject(spec: CreateSpec) {
     throw new Error(t("The target folder isn't empty"));
   }
 
-  const phpDir = p("bin", "php", spec.php);
+  const phpDir = p("bin", "php", spec.php || defaultPhp());
   const phpExe = path.join(phpDir, "php.exe");
   const phar = path.join(binDir("composer"), "composer.phar");
   // composer and npm need git for some packages
@@ -51,10 +51,10 @@ export async function createProject(spec: CreateSpec) {
   };
   const npm = (cmd: string) => stream("cmd.exe", ["/d", "/s", "/c", cmd], dir, env);
 
-  // spec.database is "none" or a database instance id ("mariadb-11.4", "postgres-17")
   const sqlite = spec.database === "sqlite";
-  const inst = spec.database === "none" || sqlite ? null : instance(spec.database);
-  if (spec.database !== "none" && !sqlite && !inst) throw new Error(t("{name} isn't installed", { name: spec.database }));
+  const target = spec.database === "none" || sqlite ? null : instance(projectInstanceId(spec.database) ?? "");
+  if (spec.database && spec.database !== "none" && !sqlite && !target) throw new Error(t("{name} isn't installed", { name: spec.database }));
+  const inst = spec.import ? null : target; // an imported project gets its database after it's saved (main.ts)
   if (inst) {
     log(t("Starting the database…"));
     await startInstance(inst.id);
@@ -190,7 +190,8 @@ HTTPServer(("127.0.0.1", port), Handler).serve_forever()
         node_cmd: spec.type === "node" || spec.type === "python" ? spec.node_cmd : undefined,
         python: spec.python || undefined,
         // the default MySQL-compatible server is implied; anything else is pinned
-        db: sqlite ? "sqlite" : inst && !(inst.default && inst.family === "mysql") ? inst.id : undefined,
+        db: sqlite ? "sqlite" : target && !(target.default && target.family === "mysql") ? target.id : undefined,
+        db_name: target ? spec.db_name : undefined,
       },
     },
   });

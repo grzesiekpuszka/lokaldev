@@ -16,7 +16,7 @@ export interface AppCtx {
   run: (key: string, fn: () => Promise<unknown>) => Promise<boolean>;
   busy: Record<string, boolean>;
   progress: Record<string, Progress>;
-  toast: (msg: string) => void;
+  toast: (msg: string, ok?: boolean) => void; // ok: a confirmation instead of an error
   setConfig: (patch: Partial<Config>) => Promise<boolean>;
 }
 
@@ -268,5 +268,23 @@ export function Notice({ tone = "accent", icon: Icon, children, action }: { tone
       <div className="min-w-0 flex-1">{children}</div>
       {action}
     </div>
+  );
+}
+
+export const defaultLabel = (name?: string) => (name ? t("Default — {name}", { name }) : t("Default"));
+export const defaultPhp = (snap: Snapshot) => (snap.php.includes(snap.config.default_php) ? snap.config.default_php : snap.php.at(-1));
+
+/** Database server of a project: "" = the default MySQL-compatible server; SQLite for Laravel and Symfony. */
+export function DatabaseSelect({ id, value, type, onChange }: { id: string; value: string; type: ProjectType; onChange: (db: string) => void }) {
+  const { snap } = useApp();
+  const def = snap.instances.find((x) => x.family === "mysql" && x.default);
+  const known = !value || value === "sqlite" || snap.instances.some((x) => x.id === value);
+  return (
+    <Select id={id} value={value} onChange={(e) => onChange(e.target.value)}>
+      <option value="">{defaultLabel(def && `${dbName(def)} (:${def.port})`)}</option>
+      {!known && <option value={value}>{value} — {t("not installed")}</option>}
+      {(type === "laravel" || type === "symfony") && <option value="sqlite">SQLite</option>}
+      {snap.instances.filter((x) => x !== def).map((x) => <option key={x.id} value={x.id}>{dbName(x)} (:{x.port})</option>)}
+    </Select>
   );
 }

@@ -64,6 +64,7 @@ export interface ProjectSettings {
   node_port?: number;  // node projects: app port the web server proxies to
   node_cmd?: string;   // node projects: e.g. "npm run dev"
   db?: string;         // database instance id ("mysql-8.4"), "sqlite"; unset/"" = the default MySQL-compatible instance
+  db_name?: string;    // a changed db or db_name creates that database on save
 }
 
 export interface Config {
@@ -110,6 +111,7 @@ export interface Project {
   custom_vhost: Record<WebServer, boolean>; // a hand-written <domain>.conf overrides the generated auto.<domain>.conf
   db: string;                  // database instance setting ("" = default MySQL-compatible instance, "sqlite" = a file)
   sqlite: string | null;       // SQLite file when the project uses one
+  db_name: string;             // from .env / wp-config.php, else the saved or a name made from the folder
 }
 
 export interface Service {
@@ -201,7 +203,7 @@ export interface CreateSpec {
   php: string;
   node: string;                  // "" = don't pin
   python: string;                // "" = the default Python
-  database: string;    // "none", "sqlite" or a database instance id ("mariadb-11.4", "postgres-17")
+  database: string;    // "none", "sqlite", "" (the default MySQL-compatible server) or a database instance id ("mariadb-11.4", "postgres-17")
   db_name: string;
   domain: string;
   ssl: boolean;
@@ -219,7 +221,7 @@ export const api = {
   // only the changed fields; the backend merges them into the current config (versions are merged per component)
   setConfig: (patch: Partial<Config>) => invoke<void>("set_config", { patch }),
   setProject: (path: string, settings: ProjectSettings) => invoke<void>("set_project", { path, settings }),
-  detectProject: (path: string, docroot?: string) => invoke<{ type: ProjectType; docroot: string; name: string }>("detect_project", { path, docroot }),
+  detectProject: (path: string, docroot?: string) => invoke<{ type: ProjectType; docroot: string; name: string; db_name: string }>("detect_project", { path, docroot }),
   createProject: (spec: CreateSpec) => invoke<void>("create_project", { spec }), // streams "task-log"
   removeProject: (path: string, deleteFiles: boolean) => invoke<void>("remove_project", { path, deleteFiles }),
 

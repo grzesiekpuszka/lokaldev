@@ -436,6 +436,8 @@ const pl: Record<string, string> = {
   "Database server": "Serwer bazy danych",
   "Default": "Domyślny",
   "Default — {name}": "Domyślny — {name}",
+  "Project settings saved.": "Zapisano ustawienia projektu.",
+  "Created on save when it changes.": "Po zmianie zostanie utworzona przy zapisie.",
   ".env is updated on save.": ".env zostanie zaktualizowany po zapisaniu.",
   "wp-config.php is updated on save.": "wp-config.php zostanie zaktualizowany po zapisaniu.",
   "This dump can't be imported into {name}": "Tego zrzutu nie można zaimportować do {name}",

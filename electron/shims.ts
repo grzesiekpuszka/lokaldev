@@ -32,8 +32,7 @@ export function syncShims() {
   const lines: string[] = [];
   const php = defaultPhp();
   if (php) lines.push(`php||${p("bin", "php", php)}`);
-  // an empty value turns the tool off in that project's folder
-  if (php) for (const x of projects()) lines.push(`php|${`${x.path}\\`.toLowerCase()}|${x.php && p("bin", "php", x.php)}`);
+  for (const x of projects()) if (x.php) lines.push(`php|${`${x.path}\\`.toLowerCase()}|${p("bin", "php", x.php)}`);
   const phar = path.join(binDir("composer"), "composer.phar");
   if (exists(phar)) lines.push(`composer||${phar}`);
   const db = path.join(binDir(config().db_engine), "bin");
@@ -52,13 +51,9 @@ export function syncShims() {
   const python = path.join(binDir("python"), "python.exe");
   if (exists(python)) lines.push(`python||${binDir("python")}`, `pip||${python}`, "pipargs||-m pip");
   for (const x of projects()) {
-    const prefix = `${x.path}\\`.toLowerCase();
-    if (x.python === "none") {
-      if (exists(python)) lines.push(`python|${prefix}|`, `pip|${prefix}|`);
-      continue;
-    }
     const dir = x.python && seriesDir("python", x.python);
     if (!dir || !exists(path.join(dir, "python.exe"))) continue;
+    const prefix = `${x.path}\\`.toLowerCase();
     lines.push(`python|${prefix}|${dir}`, `pip|${prefix}|${path.join(dir, "python.exe")}`);
   }
   if (exists(binDir("sqlite"))) lines.push(`sqlite3||${binDir("sqlite")}`);

@@ -117,6 +117,28 @@ export function detect(dir: string, docroot?: string): { type: ProjectType; docr
   return { type: "custom", docroot: start };
 }
 
+/** WordPress keeps wp-config.php in its own folder (the document root) or one level above it. */
+export const wpConfig = (dir: string, docroot: string) =>
+  [path.join(dir, docroot, "wp-config.php"), path.join(dir, "wp-config.php")].find(exists) ?? path.join(dir, docroot, "wp-config.php");
+
+/** The database name in the project's .env / wp-config.php, "" when there's none (or it's SQLite). */
+export function fileDbName(dir: string, type: ProjectType, docroot: string) {
+  const read = (f: string) => (exists(path.join(dir, f)) ? fs.readFileSync(path.join(dir, f), "utf8") : "");
+  if (type === "laravel") {
+    const s = read(".env");
+    return /^DB_CONNECTION=sqlite/m.test(s) ? "" : (s.match(/^DB_DATABASE="?([^"\r\n]*)"?/m)?.[1].trim() ?? "");
+  }
+  if (type === "symfony") return read(".env").match(/^DATABASE_URL="?(?!sqlite)\w+:\/\/[^/]*\/([^?"\r\n]*)/m)?.[1] ?? "";
+  if (type === "wordpress") {
+    const file = wpConfig(dir, docroot);
+    const name = (exists(file) ? fs.readFileSync(file, "utf8") : "").match(/define\(\s*'DB_NAME'\s*,\s*'([^']*)'/)?.[1] ?? "";
+    return name === "database_name_here" ? "" : name;
+  }
+  return "";
+}
+
+export const defaultDbName = (name: string) => slug(name).replace(/-/g, "_");
+
 export function projects(): Project[] {
   const dirs = new Map<string, boolean>();
   if (cfg.projects_dir && exists(cfg.projects_dir)) {
@@ -144,6 +166,7 @@ export function projects(): Project[] {
       const name = path.basename(dir);
       const ssl = s.ssl ?? cfg.ssl_default;
       const domain = s.domain || unique(slug(name));
+      const type = s.type && s.type !== "custom" ? s.type : d.type; // "custom" (also an empty project) follows what the files show
       let node = "";
       try {
         node = fs.readFileSync(path.join(dir, ".nvmrc"), "utf8").trim().replace(/^v/, "");
@@ -151,10 +174,10 @@ export function projects(): Project[] {
       return {
         name,
         path: dir,
-        type: s.type && s.type !== "custom" ? s.type : d.type, // "custom" (also an empty project) follows what the files show
+        type,
         domain,
         url: `${ssl ? "https" : "http"}://${domain}${portSuffix(ssl, port(ssl ? "apache_https" : "apache_http"))}`,
-        php: s.php === "none" ? "" : s.php && php.includes(s.php) ? s.php : def,
+        php: s.php && php.includes(s.php) ? s.php : def,
         node,
         ssl,
         docroot: s.docroot ?? d.docroot,
@@ -165,6 +188,7 @@ export function projects(): Project[] {
         custom_vhost: { apache: false, nginx: false },
         sqlite: null,
         db: s.db ?? "",
+        db_name: fileDbName(dir, type, s.docroot ?? d.docroot) || s.db_name || defaultDbName(name),
         python: s.python ?? "",
       };
     })

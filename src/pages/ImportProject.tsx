@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { FolderInput, Loader2 } from "lucide-react";
 import { api, type ProjectType, proxied } from "../api";
-import { Button, DocrootInput, Field, Modal, Select, Toggle, slug, typeLabels, useApp } from "../ui";
+import { Button, DatabaseSelect, DocrootInput, Field, Modal, Select, Toggle, defaultLabel, defaultPhp, slug, typeLabels, useApp } from "../ui";
 import { t } from "../i18n";
 
 export default function ImportProject({ dir, onClose }: { dir: string; onClose: () => void }) {
@@ -10,7 +10,10 @@ export default function ImportProject({ dir, onClose }: { dir: string; onClose: 
   const [type, setType] = useState<ProjectType>();
   const [domain, setDomain] = useState("");
   const [docroot, setDocroot] = useState("");
-  const [php, setPhp] = useState(snap.php.includes(config.default_php) ? config.default_php : (snap.php.at(-1) ?? ""));
+  const [php, setPhp] = useState("");
+  const phpDefault = defaultPhp(snap);
+  const [db, setDb] = useState("");
+  const [dbName, setDbName] = useState("");
   const [node, setNode] = useState("");
   const [ssl, setSsl] = useState(config.ssl_default);
   const [nodePort, setNodePort] = useState(3000);
@@ -23,6 +26,7 @@ export default function ImportProject({ dir, onClose }: { dir: string; onClose: 
         setType(d.type);
         setDocroot(d.docroot);
         setDomain(`${slug(d.name)}.${config.tld}`);
+        setDbName(d.db_name);
       })
       .catch((e) => (toast(String(e)), onClose()));
   }, [dir]);
@@ -34,7 +38,7 @@ export default function ImportProject({ dir, onClose }: { dir: string; onClose: 
   };
 
   const isNode = !!type && proxied(type);
-  const valid = !!type && /^[a-z0-9.-]+$/i.test(domain) && (isNode || !!php);
+  const valid = !!type && /^[a-z0-9.-]+$/i.test(domain) && (isNode || !!snap.php.length) && (db === "sqlite" || /^[A-Za-z0-9_$-]+$/.test(dbName));
 
   const submit = () =>
     run("import", async () => {
@@ -46,8 +50,8 @@ export default function ImportProject({ dir, onClose }: { dir: string; onClose: 
         php: isNode ? "" : php,
         node,
         python: "",
-        database: "none",
-        db_name: "",
+        database: db,
+        db_name: dbName,
         domain,
         ssl,
         docroot,
@@ -95,7 +99,7 @@ export default function ImportProject({ dir, onClose }: { dir: string; onClose: 
             <Field label={t("PHP version")}>
               {(id) => (
                 <Select id={id} value={php} onChange={(e) => setPhp(e.target.value)}>
-                  <option value="none">{t("none")}</option>
+                  <option value="">{defaultLabel(phpDefault && `PHP ${phpDefault}`)}</option>
                   {snap.php.map((v) => <option key={v} value={v}>PHP {v}</option>)}
                 </Select>
               )}
@@ -104,10 +108,14 @@ export default function ImportProject({ dir, onClose }: { dir: string; onClose: 
           <Field label={t("Node.js version")}>
             {(id) => (
               <Select id={id} value={node} disabled={snap.node.nvm !== "ok"} onChange={(e) => setNode(e.target.value)}>
-                <option value="">{t("none")}</option>
+                <option value="">{defaultLabel(snap.node.default && `Node.js ${snap.node.default}`)}</option>
                 {snap.node.installed.map((v) => <option key={v} value={v}>{v}</option>)}
               </Select>
             )}
+          </Field>
+          <Field label={t("Database server")}>{(id) => <DatabaseSelect id={id} value={db} type={type} onChange={setDb} />}</Field>
+          <Field label={t("Database name")} hint={db !== "sqlite" && t("Created if it doesn't exist.")}>
+            {(id) => <input id={id} className="input" value={db === "sqlite" ? "" : dbName} disabled={db === "sqlite"} onChange={(e) => setDbName(e.target.value.trim())} />}
           </Field>
           {isNode && (
             <>
