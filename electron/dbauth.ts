@@ -33,7 +33,7 @@ export function pgEnv(inst: Instance) {
 /** [client] in my.ini next to a MySQL/MariaDB series' bin: a plain `mysql` in a terminal logs in to that version. */
 export function writeClientIni(inst: Instance) {
   const c = applied(inst);
-  const lines = ["[client]", `user=${c.user}`, ...(c.password ? [`password="${c.password.replace(/"/g, '\\"')}"`] : []), "host=127.0.0.1", `port=${inst.port}`];
+  const lines = ["[client]", `user=${c.user}`, ...(c.password ? [`password="${c.password.replace(/[\\"]/g, "\\$&")}"`] : []), "host=127.0.0.1", `port=${inst.port}`];
   fs.writeFileSync(path.join(seriesDir(inst.engine, inst.series), "my.ini"), `${lines.join("\r\n")}\r\n`);
 }
 

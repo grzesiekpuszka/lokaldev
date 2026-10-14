@@ -11,10 +11,26 @@ export function setEnv(file: string, values: Record<string, string>) {
   let s = fs.readFileSync(file, "utf8");
   for (const [k, v] of Object.entries(values)) {
     const re = new RegExp(`^#?\\s*${k}=.*$`, "m");
-    s = re.test(s) ? s.replace(re, `${k}=${v}`) : `${s.trimEnd()}\n${k}=${v}\n`;
+    s = re.test(s) ? s.replace(re, () => `${k}=${v}`) : `${s.trimEnd()}\n${k}=${v}\n`;
   }
   fs.writeFileSync(file, s);
 }
+
+/** A .env value that Laravel and Symfony read back as is: single quotes are literal, double quotes need escapes. */
+export function envValue(v: string) {
+  if (/^[\w.\-/:@%+=,]*$/.test(v)) return v;
+  return v.includes("'") ? `"${v.replace(/[\\"$]/g, "\\$&")}"` : `'${v}'`;
+}
+
+export function envRead(v: string) {
+  v = v.trim();
+  if (/^'.*'$/.test(v)) return v.slice(1, -1);
+  if (/^".*"$/.test(v)) return v.slice(1, -1).replace(/\\(.)/g, "$1");
+  return v;
+}
+
+/** A PHP single-quoted string literal. */
+export const phpString = (s: string) => `'${s.replace(/[\\']/g, "\\$&")}'`;
 
 export const user = (inst: Instance) => wanted(inst.family).user;
 export const password = (inst: Instance) => wanted(inst.family).password;
@@ -88,7 +104,7 @@ export function syncProjectDb(x: Project, chosen = false) {
       DB_CONNECTION: laravelConnection(x.path, inst),
       DB_HOST: "127.0.0.1",
       DB_PORT: String(inst.port),
-      ...(wasPostgres !== (inst.family === "postgres") ? { DB_USERNAME: user(inst), DB_PASSWORD: password(inst) } : {}),
+      ...(wasPostgres !== (inst.family === "postgres") ? { DB_USERNAME: envValue(user(inst)), DB_PASSWORD: envValue(password(inst)) } : {}),
       ...(chosen ? { DB_DATABASE: x.db_name } : {}),
     });
   } else if (x.type === "symfony") {
@@ -106,7 +122,7 @@ export function syncProjectDb(x: Project, chosen = false) {
     const file = wpConfig(x.path, x.docroot);
     if (!exists(file)) return;
     let s = fs.readFileSync(file, "utf8").replace(/define\(\s*'DB_HOST'\s*,\s*'[^']*'\s*\)/, `define( 'DB_HOST', '127.0.0.1:${inst.port}' )`);
-    if (chosen) s = s.replace(/define\(\s*'DB_NAME'\s*,\s*'[^']*'\s*\)/, `define( 'DB_NAME', '${x.db_name}' )`);
+    if (chosen) s = s.replace(/define\(\s*'DB_NAME'\s*,\s*'[^']*'\s*\)/, () => `define( 'DB_NAME', ${phpString(x.db_name)} )`);
     fs.writeFileSync(file, s);
   }
 }
@@ -162,20 +178,20 @@ export function syncProjectCredentials(x: Project, family: "mysql" | "postgres",
   let s = fs.readFileSync(file, "utf8");
   const pgsql = /^DB_CONNECTION=pgsql$/m.test(s);
   if (x.type === "laravel" && pgsql === (family === "postgres")) {
-    const user = s.match(/^DB_USERNAME=(.*)$/m)?.[1] ?? "";
-    const pass = s.match(/^DB_PASSWORD=(.*)$/m)?.[1] ?? "";
-    if (user === from.user && pass === from.password) setEnv(file, { DB_USERNAME: to.user, DB_PASSWORD: to.password });
+    const user = envRead(s.match(/^DB_USERNAME=(.*)$/m)?.[1] ?? "");
+    const pass = envRead(s.match(/^DB_PASSWORD=(.*)$/m)?.[1] ?? "");
+    if (user === from.user && pass === from.password) setEnv(file, { DB_USERNAME: envValue(to.user), DB_PASSWORD: envValue(to.password) });
     return;
   }
   if (x.type === "symfony") {
     const login = (c: { user: string; password: string }) => [c.user, c.password].filter(Boolean).map(encodeURIComponent).join(":");
     const scheme = family === "postgres" ? "postgres(?:ql)?" : "mysql";
-    s = s.replace(new RegExp(`^(DATABASE_URL="?${scheme}://)${login(from).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}@`, "m"), `$1${login(to)}@`);
+    s = s.replace(new RegExp(`^(DATABASE_URL="?${scheme}://)${login(from).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}@`, "m"), (_, start) => `${start}${login(to)}@`);
   } else if (x.type === "wordpress" && family === "mysql") {
     const define = (key: string, from: string, to: string) => {
-      const re = new RegExp(`define\\(\\s*'${key}'\\s*,\\s*'([^']*)'\\s*\\)`);
-      const cur = s.match(re)?.[1];
-      if (cur === from) s = s.replace(re, `define( '${key}', '${to.replace(/'/g, "\\'")}' )`);
+      const re = new RegExp(`define\\(\\s*'${key}'\\s*,\\s*'((?:[^'\\\\]|\\\\.)*)'\\s*\\)`);
+      const cur = s.match(re)?.[1].replace(/\\(['\\])/g, "$1");
+      if (cur === from) s = s.replace(re, () => `define( '${key}', ${phpString(to)} )`);
     };
     if (s.match(/define\(\s*'DB_USER'\s*,\s*'([^']*)'/)?.[1] === from.user) {
       define("DB_USER", from.user, to.user);

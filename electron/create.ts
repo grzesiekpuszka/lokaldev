@@ -6,7 +6,7 @@ import type { CreateSpec } from "../src/api";
 import { config, defaultPhp, norm, port, saveConfig } from "./config";
 import { instance, projectInstanceId } from "./instances";
 import { wanted } from "./dbauth";
-import { password, serverVersion, setEnv, urlLogin, user } from "./projectdb";
+import { envValue, password, phpString, serverVersion, setEnv, urlLogin, user } from "./projectdb";
 import { dbCreate } from "./db";
 import { download, extract } from "./install";
 import { freshPath } from "./env";
@@ -70,8 +70,8 @@ export async function createProject(spec: CreateSpec) {
           DB_HOST: "127.0.0.1",
           DB_PORT: String(inst.port),
           DB_DATABASE: spec.db_name,
-          DB_USERNAME: user(inst),
-          DB_PASSWORD: password(inst),
+          DB_USERNAME: envValue(user(inst)),
+          DB_PASSWORD: envValue(password(inst)),
         }
       : {};
     const url = `${spec.ssl ? "https" : "http"}://${spec.domain}`;
@@ -111,9 +111,9 @@ export async function createProject(spec: CreateSpec) {
         await extract(zip, dir, "wp-load.php");
         fs.rmSync(zip, { force: true });
         let wp = fs.readFileSync(path.join(dir, "wp-config-sample.php"), "utf8")
-          .replace("database_name_here", spec.db_name || "wordpress")
-          .replace("username_here", wanted("mysql").user)
-          .replace("password_here", wanted("mysql").password.replace(/'/g, "\\'"))
+          .replace("'database_name_here'", () => phpString(spec.db_name || "wordpress"))
+          .replace("'username_here'", () => phpString(wanted("mysql").user))
+          .replace("'password_here'", () => phpString(wanted("mysql").password))
           .replace("'localhost'", `'127.0.0.1:${inst?.port ?? port("mysql")}'`);
         wp = wp.replace(/put your unique phrase here/g, () => crypto.randomBytes(48).toString("base64url"));
         fs.writeFileSync(path.join(dir, "wp-config.php"), wp);
