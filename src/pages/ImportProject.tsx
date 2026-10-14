@@ -14,6 +14,8 @@ export default function ImportProject({ dir, onClose }: { dir: string; onClose: 
   const phpDefault = defaultPhp(snap);
   const [db, setDb] = useState("");
   const [dbName, setDbName] = useState("");
+  const [edited, setEdited] = useState({ type: false, dbName: false }); // chosen by hand: a new detection keeps them
+  const [detecting, setDetecting] = useState(0);
   const [node, setNode] = useState("");
   const [ssl, setSsl] = useState(config.ssl_default);
   const [nodePort, setNodePort] = useState(3000);
@@ -34,7 +36,14 @@ export default function ImportProject({ dir, onClose }: { dir: string; onClose: 
   // another document root may hold another kind of app (e.g. WordPress in public_html)
   const changeDocroot = (value: string) => {
     setDocroot(value);
-    api.detectProject(dir, value).then((d) => setType(d.type), () => {});
+    setDetecting((n) => n + 1);
+    api
+      .detectProject(dir, value)
+      .then((d) => {
+        if (!edited.type) setType(d.type);
+        if (!edited.dbName) setDbName(d.db_name);
+      }, () => {})
+      .finally(() => setDetecting((n) => n - 1));
   };
 
   const isNode = !!type && proxied(type);
@@ -72,7 +81,7 @@ export default function ImportProject({ dir, onClose }: { dir: string; onClose: 
       footer={
         <>
           <Button onClick={onClose}>{t("Cancel")}</Button>
-          <Button variant="primary" icon={FolderInput} busy={busy.import} disabled={!valid} onClick={submit}>{t("Import project")}</Button>
+          <Button variant="primary" icon={FolderInput} busy={busy.import} disabled={!valid || detecting > 0} onClick={submit}>{t("Import project")}</Button>
         </>
       }
     >
@@ -83,7 +92,7 @@ export default function ImportProject({ dir, onClose }: { dir: string; onClose: 
           <Field label={t("Path")}>{(id) => <input id={id} className="input font-mono text-[13px]" value={dir} readOnly />}</Field>
           <Field label={t("Type")}>
             {(id) => (
-              <Select id={id} value={type} onChange={(e) => setType(e.target.value as ProjectType)}>
+              <Select id={id} value={type} onChange={(e) => (setType(e.target.value as ProjectType), setEdited((x) => ({ ...x, type: true })))}>
                 {Object.entries(typeLabels).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
               </Select>
             )}
@@ -116,7 +125,7 @@ export default function ImportProject({ dir, onClose }: { dir: string; onClose: 
           </Field>
           <Field label={t("Database server")}>{(id) => <DatabaseSelect id={id} value={db} type={type} none onChange={setDb} />}</Field>
           <Field label={t("Database name")} hint={!noDbName && t("Created if it doesn't exist.")}>
-            {(id) => <input id={id} className="input" value={noDbName ? "" : dbName} disabled={noDbName} onChange={(e) => setDbName(e.target.value.trim())} />}
+            {(id) => <input id={id} className="input" value={noDbName ? "" : dbName} disabled={noDbName} onChange={(e) => (setDbName(e.target.value.trim()), setEdited((x) => ({ ...x, dbName: true })))} />}
           </Field>
           {isNode && (
             <>

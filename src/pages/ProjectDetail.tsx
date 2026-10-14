@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { ArrowLeft, ExternalLink, FileCode2, FolderOpen, FolderX, Lock, Play, Save, Square, SquareTerminal, Trash2 } from "lucide-react";
 import { api, type Project, type ProjectSettings, proxied } from "../api";
 import { Badge, Button, Card, DatabaseSelect, DocrootInput, Empty, Field, Modal, PageHeader, Select, Toggle, TypeBadge, defaultLabel, defaultPhp, useApp } from "../ui";
@@ -27,18 +27,28 @@ function Detail({ project: p, back }: { project: Project; back: ReactNode }) {
   const node = proxied(p.type);
   const pinnedPhp = snap.config.projects[p.path]?.php ?? "";
   const phpDefault = defaultPhp(snap);
-  const [form, setForm] = useState<ProjectSettings>({
+  const current: ProjectSettings = {
     php: snap.php.includes(pinnedPhp) ? pinnedPhp : "", node: p.node, db_name: p.db_name, domain: p.domain, ssl: p.ssl, docroot: p.docroot, node_port: p.node_port, node_cmd: p.node_cmd, db: p.db, python: p.python,
-  });
+  };
+  const [orig, setOrig] = useState(current);
+  const [form, setForm] = useState(current);
   const [removing, setRemoving] = useState(false);
   const set = (patch: ProjectSettings) => setForm((f) => ({ ...f, ...patch }));
+  const key = (s: ProjectSettings, k: string) => s[k as keyof ProjectSettings];
+  // fields the user hasn't touched follow the project (e.g. a name changed in .env); edited ones stay
+  const snapshot = JSON.stringify(current);
+  useEffect(() => {
+    setForm((f) => Object.fromEntries(Object.entries(current).map(([k, v]) => [k, key(f, k) === key(orig, k) ? v : key(f, k)])));
+    setOrig(current);
+  }, [snapshot]);
   const db = snap.instances.find((x) => x.id === form.db) ?? (!form.db ? snap.instances.find((x) => x.family === "mysql" && x.default) : undefined);
   const synced = p.type === "laravel" || p.type === "symfony" || p.type === "wordpress";
   const nodeVersions = [...new Set([...snap.node.installed, ...(p.node ? [p.node] : [])])];
 
+  // only what was changed, so a save can't write back values that changed elsewhere meanwhile
   const save = async () => {
-    const { node_port, node_cmd, ...rest } = form;
-    if (await run("save", () => api.setProject(p.path, node ? form : rest))) toast(t("Project settings saved."), true);
+    const changed = Object.fromEntries(Object.entries(form).filter(([k, v]) => v !== key(orig, k)));
+    if (await run("save", () => api.setProject(p.path, changed))) toast(t("Project settings saved."), true);
   };
 
   return (
