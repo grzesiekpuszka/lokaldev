@@ -318,6 +318,16 @@ const handlers: Record<string, (a: any) => unknown> = {
     await install(what, version);
     pickDbEngine();
     syncShims();
+    // the PHP extension that came with it (redis, memcached, mongodb) reaches running PHP after a restart
+    if (["redis", "memcached", "mongodb"].includes(what)) {
+      await serial(async () => {
+        for (const v of installedPhp()) await svc.restartPhp(v);
+        if (svc.serviceRunning("phpmyadmin")) {
+          await svc.stopService("phpmyadmin");
+          await svc.startService("phpmyadmin");
+        }
+      });
+    }
   },
   uninstall: ({ what, version }: { what: string; version: string }) =>
     serial(async () => {
