@@ -136,7 +136,13 @@ function setConfig(patch: Partial<Config>) {
       const from = { user: prev[`${key}_user`], password: prev[`${key}_password`] };
       const to = { user: next[`${key}_user`], password: next[`${key}_password`] };
       if (from.user === to.user && from.password === to.password) continue;
-      for (const inst of svc.instances()) if (inst.family === family && inst.running) await applyCredentials(inst);
+      try {
+        for (const inst of svc.instances()) if (inst.family === family && inst.running) await applyCredentials(inst);
+      } catch (e) {
+        // keep the old login in Settings, so saving the same change again retries it
+        saveConfig({ ...config(), [`${key}_user`]: from.user, [`${key}_password`]: from.password });
+        throw e;
+      }
       for (const x of projects()) syncProjectCredentials(x, family, from, to);
       if (family === "mysql" && svc.serviceRunning("phpmyadmin")) {
         await svc.stopService("phpmyadmin");
@@ -215,7 +221,16 @@ function setProject(dir: string, settings: ProjectSettings) {
     }
     saveConfig({ ...cfg, projects: { ...cfg.projects, [key]: { ...cfg.projects[key], ...rest } } });
     const project = projects().find((x) => x.path === key);
-    if ((dbChanged || nameChanged) && project) await useDatabase({ ...project, db_name: settings.db_name ?? project.db_name });
+    if ((dbChanged || nameChanged) && project) {
+      try {
+        await useDatabase({ ...project, db_name: settings.db_name ?? project.db_name });
+      } catch (e) {
+        // back to the previous database, so saving the same change again retries it
+        const c = config();
+        saveConfig({ ...c, projects: { ...c.projects, [key]: { ...c.projects[key], db: cfg.projects[key]?.db, db_name: cfg.projects[key]?.db_name } } });
+        throw e;
+      }
+    }
     await reloadIfStale();
   });
 }
