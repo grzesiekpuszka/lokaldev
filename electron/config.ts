@@ -40,6 +40,10 @@ setLang(cfg.language);
 function load(): Config {
   try {
     const saved = JSON.parse(fs.readFileSync(p("config.json"), "utf8"));
+    // 1.0.0-beta.4 had "none" for PHP, Python and the database; those projects go back to the defaults
+    for (const s of Object.values(saved.projects ?? {}) as Record<string, unknown>[]) {
+      for (const k of ["php", "python", "db"]) if (s[k] === "none") delete s[k];
+    }
     return withProjectsDir({ ...defaults, ...saved, ports: { ...defaults.ports, ...saved.ports } });
   } catch {
     return withProjectsDir({ ...defaults });
