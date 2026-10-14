@@ -396,7 +396,7 @@ const handlers: Record<string, (a: any) => unknown> = {
   open_pgadmin: () => openPgAdmin(),
   open_phpmyadmin: () => openWebTool("phpmyadmin"),
   open_mailpit: () => openWebTool("mailpit"),
-  open_url: ({ url }: { url: string }) => shell.openExternal(url),
+  open_url: ({ url }: { url: string }) => openLink(url),
   // config editors work per database instance ("mariadb-11.4", "postgres-17")
   db_config_get: ({ id }: { id: string }) => {
     const inst = requireInstance(id);
@@ -460,8 +460,16 @@ const handlers: Record<string, (a: any) => unknown> = {
   },
 };
 
-ipcMain.handle("invoke", async (_e, cmd: string, args: unknown) => {
+/** Only web links leave the app; file:, ms-settings: and other schemes could start programs. */
+function openLink(url: string) {
+  if (!/^https?:$/.test(new URL(url).protocol)) throw new Error(t("Only http and https links can be opened"));
+  return shell.openExternal(url);
+}
+
+ipcMain.handle("invoke", async (e, cmd: string, args: unknown) => {
   try {
+    // only lokaldev's own page may call into the main process
+    if (!win || e.sender !== win.webContents || e.senderFrame !== win.webContents.mainFrame) throw new Error(t("Unknown command: {cmd}", { cmd }));
     const handler = handlers[cmd];
     if (!handler) throw new Error(t("Unknown command: {cmd}", { cmd }));
     return { ok: true, value: (await handler(args ?? {})) ?? null };
@@ -484,9 +492,13 @@ function createWindow(show: boolean) {
     show,
     backgroundColor: nativeTheme.shouldUseDarkColors ? "#202020" : "#f3f3f3",
     autoHideMenuBar: true,
-    webPreferences: { preload: path.join(__dirname, "preload.cjs") },
+    webPreferences: { preload: path.join(__dirname, "preload.cjs"), sandbox: true, contextIsolation: true, nodeIntegration: false },
   });
-  win.webContents.setWindowOpenHandler(({ url }) => (shell.openExternal(url), { action: "deny" }));
+  // links open in the browser; the window itself never navigates away from lokaldev
+  win.webContents.setWindowOpenHandler(({ url }) => (openLink(url).catch(() => {}), { action: "deny" }));
+  win.webContents.on("will-navigate", (e, url) => {
+    if (url !== win?.webContents.getURL()) e.preventDefault();
+  });
   // closing the window keeps lokaldev (and its services) running in the notification area
   win.on("close", (e) => {
     if (quitting) return;

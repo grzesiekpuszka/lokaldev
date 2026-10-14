@@ -3,6 +3,7 @@
   "private": true,
   "version": "1.0.0-beta.5",
   "type": "module",
+  "packageManager": "pnpm@12.11.2",
   "scripts": {
     "dev": "pnpm build:shim && node scripts/dev.mjs",
     "build:shim": "node scripts/build-shim.mjs",

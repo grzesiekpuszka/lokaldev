@@ -439,6 +439,7 @@ const pl: Record<string, string> = {
   "Default": "Domyślny",
   "Default — {name}": "Domyślny — {name}",
   "Project settings saved.": "Zapisano ustawienia projektu.",
+  "Only http and https links can be opened": "Można otwierać tylko linki http i https",
   "Can't read the version of the installed nvm, so it isn't replaced.": "Nie można odczytać wersji zainstalowanego nvm, więc nie zostanie zastąpiony.",
   "Invalid domain: {domain}": "Nieprawidłowa domena: {domain}",
   "The update failed and not all files of the previous version could be restored. They are in {dir} (see update.log).": "Aktualizacja się nie powiodła i nie wszystkie pliki poprzedniej wersji udało się przywrócić. Są w {dir} (szczegóły w update.log).",
