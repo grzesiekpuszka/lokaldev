@@ -136,6 +136,13 @@ export function applyUpdate(running: string[]) {
  * previous update left (its backup is kept for one start).
  */
 export function afterUpdate(): string[] {
+  // files the updater couldn't put back stay out of data\tmp, so nothing cleans them up before a manual restore
+  if (exists(path.join(DIR, "rollback-failed"))) {
+    const keep = p(`update-backup-${Date.now()}`);
+    fs.renameSync(DIR, keep);
+    balloon(t("The update failed and not all files of the previous version could be restored. They are in {dir} (see update.log).", { dir: keep }));
+    return [];
+  }
   const updated = process.argv.includes("--updated");
   if (!updated && !process.argv.includes("--update-failed")) {
     fs.rmSync(DIR, { recursive: true, force: true });

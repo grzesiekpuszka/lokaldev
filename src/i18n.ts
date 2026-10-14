@@ -437,6 +437,7 @@ const pl: Record<string, string> = {
   "Default": "Domyślny",
   "Default — {name}": "Domyślny — {name}",
   "Project settings saved.": "Zapisano ustawienia projektu.",
+  "The update failed and not all files of the previous version could be restored. They are in {dir} (see update.log).": "Aktualizacja się nie powiodła i nie wszystkie pliki poprzedniej wersji udało się przywrócić. Są w {dir} (szczegóły w update.log).",
   "The new databases folder already contains {names}. Move or delete them first.": "Nowy folder baz zawiera już {names}. Najpierw je przenieś lub usuń.",
   "Can't log in to {name} with the saved or the new login": "Nie można zalogować się do {name} ani zapisanym, ani nowym loginem",
   "Can't log in to {name} with the new login": "Nie można zalogować się do {name} nowym loginem",

@@ -1,6 +1,7 @@
 // Installs a downloaded lokaldev update once the app has exited: the entries the new package contains are moved to a
-// backup, the new files are copied in and the new exe starts. On any failure the backup is put back and the old
-// version starts. A window-less exe (/target:winexe), so nothing flashes on screen.
+// backup, the new files are copied in and the new exe starts. On any failure the new entries are removed, the backup is
+// put back and the old version starts; what went wrong goes to update.log, and a "rollback-failed" file next to it
+// tells the app that the backup still holds files it couldn't restore. A window-less exe (/target:winexe).
 // Usage: updater.exe <root> <new> <backup> <pid> [app arguments...]
 // Built with the C# 5 compiler that ships with Windows: scripts/build-shim.mjs
 using System;
@@ -11,13 +12,14 @@ using System.Threading;
 
 static class Updater
 {
-    // next to the exe but not part of the package
+    // next to the exe but never part of an update, even if a package contained them
     static readonly string[] Keep = { "data", "www", "databases" };
 
     static int Main(string[] args)
     {
         string root = args[0], fresh = args[1], backup = args[2];
         int pid = int.Parse(args[3]);
+        string dir = Path.GetDirectoryName(backup);
         string appArgs = "";
         for (int i = 4; i < args.Length; i++) appArgs += " \"" + args[i] + "\"";
 
@@ -29,6 +31,7 @@ static class Updater
         Thread.Sleep(1500); // its child processes release their files
 
         var moved = new List<string>();
+        var added = new List<string>();
         try
         {
             if (Directory.Exists(backup)) Directory.Delete(backup, true);
@@ -38,37 +41,81 @@ static class Updater
                 string name = Path.GetFileName(entry);
                 if (Array.Exists(Keep, k => string.Equals(k, name, StringComparison.OrdinalIgnoreCase))) continue;
                 string current = Path.Combine(root, name);
-                if (!File.Exists(current) && !Directory.Exists(current)) continue;
-                Retry(() => Move(current, Path.Combine(backup, name)));
-                moved.Add(name);
+                if (File.Exists(current) || Directory.Exists(current))
+                {
+                    Retry(() => Move(current, Path.Combine(backup, name)));
+                    moved.Add(name);
+                }
+                else added.Add(name);
             }
-            CopyTree(fresh, root);
+            foreach (string name in moved.Concat(added))
+            {
+                string from = Path.Combine(fresh, name), to = Path.Combine(root, name);
+                if (Directory.Exists(from)) CopyTree(from, to);
+                else Retry(() => File.Copy(from, to, true));
+            }
             Start(root, "--updated" + appArgs);
             return 0;
         }
-        catch (Exception)
+        catch (Exception e)
         {
-            // put the old version back: drop what was copied over the moved entries, move them back
+            var log = new List<string> { DateTime.Now + " update failed: " + e };
+            bool restored = true;
+            foreach (string name in moved.Concat(added))
+            {
+                try
+                {
+                    Retry(() => Delete(Path.Combine(root, name)));
+                }
+                catch (Exception x)
+                {
+                    restored = false;
+                    log.Add("can't remove " + name + ": " + x.Message);
+                }
+            }
             foreach (string name in moved)
             {
                 try
                 {
-                    string current = Path.Combine(root, name);
-                    if (Directory.Exists(current)) Directory.Delete(current, true);
-                    else if (File.Exists(current)) File.Delete(current);
-                    Move(Path.Combine(backup, name), current);
+                    Retry(() => Move(Path.Combine(backup, name), Path.Combine(root, name)));
                 }
-                catch (Exception) { }
+                catch (Exception x)
+                {
+                    restored = false;
+                    log.Add("can't restore " + name + ": " + x.Message);
+                }
             }
-            Start(root, "--update-failed" + appArgs);
+            try
+            {
+                File.WriteAllLines(Path.Combine(dir, "update.log"), log);
+                if (!restored) File.WriteAllText(Path.Combine(dir, "rollback-failed"), "");
+            }
+            catch (Exception) { }
+            try
+            {
+                Start(root, "--update-failed" + appArgs);
+            }
+            catch (Exception) { }
             return 1;
         }
+    }
+
+    static IEnumerable<string> Concat(this IEnumerable<string> a, IEnumerable<string> b)
+    {
+        foreach (string x in a) yield return x;
+        foreach (string x in b) yield return x;
     }
 
     static void Move(string from, string to)
     {
         if (Directory.Exists(from)) Directory.Move(from, to);
         else File.Move(from, to);
+    }
+
+    static void Delete(string path)
+    {
+        if (Directory.Exists(path)) Directory.Delete(path, true);
+        else if (File.Exists(path)) File.Delete(path);
     }
 
     // files can stay locked for a moment after the app exits
