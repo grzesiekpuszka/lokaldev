@@ -288,9 +288,8 @@ openssl.cafile = "${cacert}"
   );
 }
 
-export async function install(what: string, version = "") {
+export async function install(what: string, version = "", dest = componentDir(what, version)) {
   const id = `${what}-${version}`; // progress id, e.g. "php-8.4", "mariadb-11.4"
-  const dest = componentDir(what, version);
   const file = p("tmp", `${id}.download`);
   let ver = "";
   let lastError: unknown;
@@ -319,7 +318,7 @@ export async function install(what: string, version = "") {
   if (what === "mongodb") await installMongosh(dest, id);
   fs.writeFileSync(path.join(dest, ".version"), ver);
   if (what === "php") await phpIni(dest);
-  await syncExtensions(what, version);
+  if (dest === componentDir(what, version)) await syncExtensions(what, version);
 }
 
 /** MongoDB 6+ ships without a shell; mongosh goes into the series folder. */
@@ -358,10 +357,30 @@ export async function binaryUpdates(installed: { what: string; series: string; v
   return updates;
 }
 
-/** Replaces an installed series with the newest release of that series; php.ini and DLLs added later (PECL) are kept. */
-export async function update(what: string, series: string) {
+/**
+ * Replaces an installed series with the newest release of that series; php.ini and DLLs added later (PECL) are kept.
+ * The new files are prepared in <series>.new while the old ones stay in use; `stop` runs just before the swap.
+ */
+export async function update(what: string, series: string, stop: () => Promise<void>) {
   const dest = componentDir(what, series);
+  const fresh = `${dest}.new`;
   const old = `${dest}.old`;
+  fs.rmSync(fresh, { recursive: true, force: true });
+  try {
+    await install(what, series, fresh);
+  } catch (e) {
+    fs.rmSync(fresh, { recursive: true, force: true });
+    throw e;
+  }
+  await stop();
+  if (what === "php") {
+    fs.copyFileSync(path.join(dest, "php.ini"), path.join(fresh, "php.ini"));
+    for (const sub of ["ext", ""]) {
+      for (const f of fs.readdirSync(path.join(dest, sub)).filter((f) => f.toLowerCase().endsWith(".dll"))) {
+        if (!exists(path.join(fresh, sub, f))) fs.copyFileSync(path.join(dest, sub, f), path.join(fresh, sub, f));
+      }
+    }
+  }
   fs.rmSync(old, { recursive: true, force: true });
   // a just-stopped service may hold its files for a moment
   for (let i = 0; ; i++) {
@@ -369,24 +388,44 @@ export async function update(what: string, series: string) {
       fs.renameSync(dest, old);
       break;
     } catch {
-      if (i === 10) throw new Error(t("Files of {name} are in use — close programs that use it and try again.", { name: `${what} ${series}` }));
+      if (i === 10) {
+        fs.rmSync(fresh, { recursive: true, force: true });
+        throw new Error(t("Files of {name} are in use — close programs that use it and try again.", { name: `${what} ${series}` }));
+      }
       await new Promise((r) => setTimeout(r, 500));
     }
   }
   try {
-    await install(what, series);
-    if (what === "php") {
-      fs.copyFileSync(path.join(old, "php.ini"), path.join(dest, "php.ini"));
-      for (const sub of ["ext", ""]) {
-        for (const f of fs.readdirSync(path.join(old, sub)).filter((f) => f.toLowerCase().endsWith(".dll"))) {
-          if (!exists(path.join(dest, sub, f))) fs.copyFileSync(path.join(old, sub, f), path.join(dest, sub, f));
-        }
-      }
-    }
+    fs.renameSync(fresh, dest);
   } catch (e) {
     fs.rmSync(dest, { recursive: true, force: true });
     fs.renameSync(old, dest);
+    fs.rmSync(fresh, { recursive: true, force: true });
     throw e;
   }
   fs.rmSync(old, { recursive: true, force: true });
+  await syncExtensions(what, series);
+}
+
+/**
+ * Finishes or undoes a binary update interrupted by a crash: <series>.old is the previous install, put back when
+ * <series> isn't complete (no .version yet). Leftover .new/.tmp folders are removed.
+ */
+export function recoverUpdates() {
+  const bin = p("bin");
+  if (!exists(bin)) return;
+  for (const what of fs.readdirSync(bin)) {
+    const root = path.join(bin, what);
+    if (!fs.statSync(root).isDirectory()) continue;
+    for (const name of fs.readdirSync(root)) {
+      const dir = path.join(root, name);
+      if (name.endsWith(".new") || name.endsWith(".tmp")) fs.rmSync(dir, { recursive: true, force: true });
+      if (!name.endsWith(".old")) continue;
+      const dest = dir.slice(0, -4);
+      if (!exists(path.join(dest, ".version"))) {
+        fs.rmSync(dest, { recursive: true, force: true });
+        fs.renameSync(dir, dest);
+      } else fs.rmSync(dir, { recursive: true, force: true });
+    }
+  }
 }

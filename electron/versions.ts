@@ -32,6 +32,7 @@ export function installedSeries(id: ComponentId) {
   if (!exists(root)) return [];
   return fs
     .readdirSync(root)
+    .filter((series) => /^\d+(\.\d+)*$/.test(series)) // not 11.4.old/.new/.tmp left by an update
     .map((series) => ({ series, version: readVersion(path.join(root, series)) }))
     .filter((x): x is { series: string; version: string } => !!x.version)
     .sort((a, b) => versionKey(b.series).localeCompare(versionKey(a.series)));

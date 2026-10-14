@@ -10,7 +10,7 @@ import { familyOf, instance, parseInstance, projectInstanceId, usedInstanceIds }
 import { sqliteFile, syncProjectCredentials, syncProjectDb, syncProjectMail } from "./projectdb";
 import { applyCredentials } from "./dbauth";
 import { exportAll, exportDatabase, importDump, inspectDump } from "./dump";
-import { componentReleases, install, phpReleases, uninstall, update } from "./install";
+import { componentReleases, install, phpReleases, recoverUpdates, uninstall, update } from "./install";
 import { afterUpdate, applyUpdate, checkUpdates, downloadUpdate, forgetBinary, scheduleChecks, updateState } from "./updates";
 import { activeSeries, activeVersion, COMPONENTS, dbRoot, DEFAULT_DB_ROOT, installedSeries, migrateLayout } from "./versions";
 import { installTool, jsTools, systemGit, uninstallTool } from "./tools";
@@ -284,9 +284,11 @@ const handlers: Record<string, (a: any) => unknown> = {
   apply_update: () => applyUpdate(svc.services().filter((s) => s.running && s.id !== "pgadmin").map((s) => s.id)),
   update_component: ({ what, version }: { what: string; version: string }) =>
     serial(async () => {
-      const stopped = await stopUsers(what, version);
+      let stopped: ServiceId[] = [];
       try {
-        await update(what, version);
+        await update(what, version, async () => {
+          stopped = await stopUsers(what, version);
+        });
         forgetBinary(what, version);
       } finally {
         syncShims();
@@ -522,6 +524,7 @@ app.whenReady().then(async () => {
   if (process.argv.includes("--quit")) return app.quit();
   await cleanupOrphans();
   if (config().launch_at_login) applyLoginItem(true);
+  recoverUpdates();
   migrateLayout();
   pickDbEngine();
   syncShims();

@@ -79,7 +79,7 @@ export function installedPhp() {
   const dir = p("bin", "php");
   return fs
     .readdirSync(dir)
-    .filter((v) => exists(path.join(dir, v, "php-cgi.exe")))
+    .filter((v) => /^\d+\.\d+$/.test(v) && exists(path.join(dir, v, "php-cgi.exe")))
     .sort((a, b) => versionKey(a).localeCompare(versionKey(b)));
 }
 
