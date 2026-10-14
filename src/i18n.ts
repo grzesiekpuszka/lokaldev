@@ -437,6 +437,7 @@ const pl: Record<string, string> = {
   "Default": "Domyślny",
   "Default — {name}": "Domyślny — {name}",
   "Project settings saved.": "Zapisano ustawienia projektu.",
+  "The new databases folder already contains {names}. Move or delete them first.": "Nowy folder baz zawiera już {names}. Najpierw je przenieś lub usuń.",
   "Can't log in to {name} with the saved or the new login": "Nie można zalogować się do {name} ani zapisanym, ani nowym loginem",
   "Can't log in to {name} with the new login": "Nie można zalogować się do {name} nowym loginem",
   "Created on save when it changes.": "Po zmianie zostanie utworzona przy zapisie.",

@@ -478,27 +478,45 @@ const DATA_SERVICES = ["mongodb", "redis", "mailpit"];
  * Moves the databases folder: data services stop, every subfolder (one per service and version) moves unless the new
  * folder already has it — then that one is used as is — and the services start again.
  */
+/**
+ * Moves the databases folder's contents with the data services stopped. A failure puts everything back; copies (another
+ * drive) replace their originals only in the returned function, which runs once the config points to the new folder.
+ */
 export async function moveDbRoot(from: string, to: string) {
+  const names = exists(from) ? fs.readdirSync(from) : [];
+  const taken = names.filter((name) => exists(path.join(to, name)));
+  if (taken.length) throw new Error(t("The new databases folder already contains {names}. Move or delete them first.", { names: taken.join(", ") }));
   const instances = runningInstanceIds();
   const others = DATA_SERVICES.filter((id) => running(id));
-  for (const id of instances) await stopInstance(id);
-  for (const id of others) await stopService(id as ServiceId);
-  fs.mkdirSync(to, { recursive: true });
-  for (const name of exists(from) ? fs.readdirSync(from) : []) {
-    const src = path.join(from, name);
-    const dst = path.join(to, name);
-    if (exists(dst)) continue;
-    try {
-      fs.renameSync(src, dst);
-    } catch {
-      // another drive: copy, then remove the original
-      await fs.promises.cp(src, dst, { recursive: true });
-      await fs.promises.rm(src, { recursive: true, force: true });
-    }
-  }
-  return async () => {
+  const restart = async () => {
     for (const id of instances) await startInstance(id);
     for (const id of others) await startService(id as ServiceId);
+  };
+  for (const id of instances) await stopInstance(id);
+  for (const id of others) await stopService(id as ServiceId);
+  const moved: string[] = [];
+  const copied: string[] = [];
+  try {
+    fs.mkdirSync(to, { recursive: true });
+    for (const name of names) {
+      try {
+        fs.renameSync(path.join(from, name), path.join(to, name));
+        moved.push(name);
+      } catch {
+        // another drive: copy now, remove the original after the switch
+        copied.push(name);
+        await fs.promises.cp(path.join(from, name), path.join(to, name), { recursive: true, errorOnExist: true, force: false });
+      }
+    }
+  } catch (e) {
+    for (const name of moved) fs.renameSync(path.join(to, name), path.join(from, name));
+    for (const name of copied) await fs.promises.rm(path.join(to, name), { recursive: true, force: true });
+    await restart();
+    throw e;
+  }
+  return async () => {
+    for (const name of copied) await fs.promises.rm(path.join(from, name), { recursive: true, force: true });
+    await restart();
   };
 }
 
