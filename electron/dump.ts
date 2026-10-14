@@ -196,14 +196,16 @@ function compatFilter(target: Instance["engine"], selected: Set<string> | null) 
 
 /** Streams a dump into the engine's command-line client; a client error (e.g. SQL syntax) ends the import with its message. */
 async function feed(inst: Instance, file: string, database: string | null, filter: ((l: Buffer) => Buffer | null) | null, progress: (n: number) => void) {
+  // the client's own output (e.g. SELECTs in the dump) is dropped: an unread pipe would stall it
+  const stdio: ["pipe", "ignore", "pipe"] = ["pipe", "ignore", "pipe"];
   const child =
     inst.family === "postgres"
-      ? spawn(instanceBin(inst, "psql"), ["-w", "-v", "ON_ERROR_STOP=1", "-q", "-d", database ?? "postgres"], { windowsHide: true, env: pgEnv(inst) })
+      ? spawn(instanceBin(inst, "psql"), ["-w", "-v", "ON_ERROR_STOP=1", "-q", "-d", database ?? "postgres"], { windowsHide: true, env: pgEnv(inst), stdio })
       : spawn(
           instanceBin(inst, "mysql"),
           // --binary-mode: no translation of \0 or \r\n, so binary column data survives
           [...mysqlLogin(inst), "--default-character-set=utf8mb4", "--max-allowed-packet=1G", "--binary-mode", ...(database ? [database] : [])],
-          { windowsHide: true },
+          { windowsHide: true, stdio },
         );
   const stderr = capture(child);
   const stdin = child.stdin!;
@@ -219,15 +221,22 @@ async function feed(inst: Instance, file: string, database: string | null, filte
     size = 0;
     if (!ok) await Promise.race([once(stdin, "drain").catch(() => {}), closed.catch(() => {})]);
   };
-  for await (const line of rawLines(file, progress)) {
-    if (exited) break;
-    const out = filter ? filter(line) : line;
-    if (!out) continue;
-    batch.push(out);
-    size += out.length;
-    if (size > 1 << 20) await flush();
+  try {
+    for await (const line of rawLines(file, progress)) {
+      if (exited) break;
+      const out = filter ? filter(line) : line;
+      if (!out) continue;
+      batch.push(out);
+      size += out.length;
+      if (size > 1 << 20) await flush();
+    }
+    await flush();
+  } catch (e) {
+    // e.g. a broken gzip: stop the client instead of leaving it waiting for more input
+    child.kill();
+    await closed.catch(() => {});
+    throw e;
   }
-  await flush();
   stdin.end();
   await closed;
 }
