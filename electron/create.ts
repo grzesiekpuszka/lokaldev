@@ -3,7 +3,7 @@ import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import type { CreateSpec } from "../src/api";
-import { config, defaultPhp, norm, port, saveConfig } from "./config";
+import { checkDocroot, config, defaultPhp, norm, port, saveConfig } from "./config";
 import { instance, projectInstanceId } from "./instances";
 import { wanted } from "./dbauth";
 import { envValue, password, phpString, serverVersion, setEnv, urlLogin, user } from "./projectdb";
@@ -34,6 +34,7 @@ function stream(file: string, args: string[], cwd: string, env: NodeJS.ProcessEn
 export async function createProject(spec: CreateSpec) {
   const dir = norm(spec.path);
   if (!spec.name.trim()) throw new Error(t("Enter a project name"));
+  checkDocroot(spec.docroot);
   if (spec.import) {
     if (!exists(dir)) throw new Error(t("The folder doesn't exist"));
   } else if (exists(dir) && fs.readdirSync(dir).length) {

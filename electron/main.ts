@@ -3,7 +3,7 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import type { ComponentId, Config, CreateSpec, DbEngine, JsTool, PortKey, Project, ProjectSettings, ServiceId, Snapshot, WebServer } from "../src/api";
-import { config, defaultDbName, defaultPhp, detect, fileDbName, installedPhp, norm, port, projects, saveConfig, timezone } from "./config";
+import { checkDocroot, config, defaultDbName, defaultPhp, detect, fileDbName, installedPhp, norm, port, projects, saveConfig, timezone } from "./config";
 import { createProject } from "./create";
 import { databases, dbCreate, dbDrop, requireInstance } from "./db";
 import { familyOf, instance, parseInstance, projectInstanceId, usedInstanceIds } from "./instances";
@@ -204,6 +204,7 @@ function setProject(dir: string, settings: ProjectSettings) {
     const cfg = config();
     const key = norm(dir);
     assertDomainFree(settings.domain, key);
+    if (settings.docroot !== undefined) checkDocroot(settings.docroot);
     if (settings.node !== undefined) pinNode(key, settings.node);
     const { node: _, ...rest } = settings;
     const dbChanged = settings.db !== undefined && (settings.db || "") !== (cfg.projects[key]?.db || "");
@@ -247,6 +248,7 @@ const handlers: Record<string, (a: any) => unknown> = {
   set_config: ({ patch }: { patch: Partial<Config> }) => setConfig(patch),
   set_project: ({ path, settings }: { path: string; settings: ProjectSettings }) => setProject(path, settings),
   detect_project: ({ path: dir, docroot }: { path: string; docroot?: string }) => {
+    if (docroot !== undefined) checkDocroot(docroot);
     const d = detect(dir, docroot);
     return { ...d, name: path.basename(dir), db_name: fileDbName(dir, d.type, d.docroot) || defaultDbName(path.basename(dir)) };
   },

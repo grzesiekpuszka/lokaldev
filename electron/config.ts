@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import type { Config, PortKey, Project, ProjectType } from "../src/api";
 import { exists, p, ROOT, slug, versionKey } from "./util";
-import { setLang } from "../src/i18n";
+import { setLang, t } from "../src/i18n";
 
 const defaults: Config = {
   projects_dir: "",
@@ -116,9 +116,17 @@ export function detect(dir: string, docroot?: string): { type: ProjectType; docr
     if (type === "laravel" || type === "symfony") return { type, docroot: path.join(level, "public") };
     if (type === "wordpress") return { type, docroot: level };
     if (type) return { type, docroot: "" };
-    if (!level) break;
+    if (!level || path.dirname(rel) === rel) break;
   }
   return { type: "custom", docroot: start };
+}
+
+/** A document root is a folder inside the project, relative to it. */
+export function checkDocroot(docroot: string) {
+  const rel = path.normalize(docroot || ".");
+  if (path.isAbsolute(rel) || /^[a-z]:/i.test(rel) || rel === ".." || rel.startsWith(`..${path.sep}`)) {
+    throw new Error(t("The document root must be inside the project folder."));
+  }
 }
 
 /** WordPress keeps wp-config.php in its own folder (the document root) or one level above it. */
