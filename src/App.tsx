@@ -98,6 +98,10 @@ export default function App() {
   }, []);
 
   if (snap) setLang(snap.config.language);
+  const language = snap?.config.language ?? "en";
+  useEffect(() => {
+    document.documentElement.lang = language;
+  }, [language]);
 
   const toastView = (
     <div className="fixed right-4 bottom-4 z-50 flex w-96 flex-col gap-2" aria-live="polite">

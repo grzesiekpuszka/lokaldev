@@ -51,12 +51,24 @@ function ca() {
 
 const caName = () => ca().cert.subject.getField("CN").value as string;
 
+/** A certificate to replace: missing key, unreadable, issued by another CA or expiring within 30 days. */
+function stale(cert: string, key: string, authority: forge.pki.Certificate) {
+  if (!exists(cert) || !exists(key)) return true;
+  try {
+    const c = forge.pki.certificateFromPem(fs.readFileSync(cert, "utf8"));
+    forge.pki.privateKeyFromPem(fs.readFileSync(key, "utf8"));
+    return c.issuer.getField("CN")?.value !== authority.subject.getField("CN").value || c.validity.notAfter.getTime() < Date.now() + 30 * 86400e3;
+  } catch {
+    return true;
+  }
+}
+
 /** Returns cert/key paths for a domain, issuing them from the local CA when missing or outdated. */
 export function certFor(domain: string) {
   const cert = p("ssl", `${domain}.crt`);
   const key = p("ssl", `${domain}.key`);
   const authority = ca();
-  if (!exists(cert) || fs.statSync(cert).mtimeMs < fs.statSync(caCert).mtimeMs) {
+  if (stale(cert, key, authority.cert)) {
     const pair = keypair();
     const c = newCert(pair.pub, 800);
     c.setSubject([{ name: "commonName", value: domain }]);

@@ -38,12 +38,11 @@ export function pgConfSet(series: string, change: { raw?: string; settings?: Rec
   let lines = change.raw !== undefined ? change.raw.split(/\r?\n/) : read(series);
   if (change.raw === undefined) {
     for (const [key, value] of Object.entries(change.settings ?? {})) {
-      const at = lines.findIndex((l) => active(key).test(l));
-      if (value === "") {
-        // commenting out restores the built-in default
-        if (at >= 0) lines[at] = `#${lines[at].trimStart()}`;
-        continue;
-      }
+      // the last line of a key wins: earlier duplicates (e.g. added in the raw tab) are commented out
+      const all = lines.flatMap((l, i) => (active(key).test(l) ? [i] : []));
+      const at = all.at(-1) ?? -1;
+      for (const i of value === "" ? all : all.slice(0, -1)) lines[i] = `#${lines[i].trimStart()}`; // commented out = the built-in default
+      if (value === "") continue;
       const line = `${key} = ${format(value)}`;
       if (at >= 0) lines[at] = line;
       else {

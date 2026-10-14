@@ -12,16 +12,19 @@ export default function Logs() {
   const [auto, setAuto] = useState(false);
   const view = useRef<HTMLPreElement>(null);
 
-  useEffect(() => {
+  // the list is refreshed too: a service started for the first time adds its log
+  const loadFiles = useCallback(() => {
     api.logs().then((l) => {
       setFiles(l);
-      setCurrent((c) => c || l[0] || "");
+      setCurrent((c) => (l.includes(c) ? c : l[0] || ""));
     }, (e) => toast(String(e)));
   }, [toast]);
+  useEffect(loadFiles, [loadFiles]);
 
   const load = useCallback(() => {
+    loadFiles();
     if (current) api.logRead(current).then(setText, (e) => toast(String(e)));
-  }, [current, toast]);
+  }, [current, loadFiles, toast]);
 
   useEffect(load, [load]);
   useEffect(() => {
@@ -37,7 +40,11 @@ export default function Logs() {
     <>
       <PageHeader title={t("Logs")} subtitle={t("Service and task logs")} />
       {!files.length ? (
-        <Card><Empty icon={ScrollText} title={t("No log files")} /></Card>
+        <Card>
+          <Empty icon={ScrollText} title={t("No log files")}>
+            <Button size="sm" icon={RefreshCw} onClick={loadFiles}>{t("Refresh")}</Button>
+          </Empty>
+        </Card>
       ) : (
         <div className="grid h-[calc(100vh-170px)] min-h-80 grid-cols-[220px_1fr] gap-3">
           <Card className="overflow-auto p-1.5">

@@ -35,11 +35,17 @@ function section(lines: string[]) {
 }
 
 function set(lines: string[], key: string, value: string) {
+  // the last line of a key wins: earlier duplicates go
+  for (;;) {
+    const { start, end } = section(lines);
+    const all = lines.flatMap((l, i) => (i > start && i < end && keyRe(key).test(l) ? [i] : []));
+    if (all.length <= (value === "" ? 0 : 1)) break;
+    lines.splice(all[0], 1);
+  }
   const { start, end } = section(lines);
   const at = lines.findIndex((l, i) => i > start && i < end && keyRe(key).test(l));
-  if (value === "") {
-    if (at > 0) lines.splice(at, 1);
-  } else if (at > 0) lines[at] = `${key}=${value}`;
+  if (value === "") return;
+  if (at > 0) lines[at] = `${key}=${value}`;
   else {
     let pos = end;
     while (pos - 1 > start && !lines[pos - 1].trim()) pos--; // keep blank lines before the next section

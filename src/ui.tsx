@@ -1,4 +1,5 @@
-import { createContext, useContext, useEffect, useId, type ButtonHTMLAttributes, type ReactNode, type SelectHTMLAttributes } from "react";
+import { createContext, useContext, useEffect, useId, useRef, type ButtonHTMLAttributes, type ReactNode, type SelectHTMLAttributes } from "react";
+import { createPortal } from "react-dom";
 import { FolderOpen, Loader2, X, type LucideIcon } from "lucide-react";
 import { api, type Config, type DbInstance, type Progress, type ProjectType, type Snapshot } from "./api";
 import { t } from "./i18n";
@@ -222,9 +223,22 @@ export function Modal({ title, onClose, children, footer, wide }: { title: strin
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
-  return (
+  // the page behind can't be reached (keyboard included) while the dialog is open; focus comes back afterwards
+  const box = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const root = document.getElementById("root");
+    const before = document.activeElement as HTMLElement | null;
+    root?.setAttribute("inert", "");
+    const first = box.current?.querySelector<HTMLElement>("input:not([disabled]), select:not([disabled]), textarea, [role=radio]");
+    (first ?? box.current)?.focus();
+    return () => {
+      root?.removeAttribute("inert");
+      before?.focus();
+    };
+  }, []);
+  return createPortal(
     <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-6" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div role="dialog" aria-modal aria-label={title} className={cx("flex max-h-full w-full flex-col overflow-hidden rounded-xl border border-line bg-surface shadow-2xl", wide ? "max-w-3xl" : "max-w-md")}>
+      <div ref={box} tabIndex={-1} role="dialog" aria-modal aria-label={title} className={cx("flex outline-none max-h-full w-full flex-col overflow-hidden rounded-xl border border-line bg-surface shadow-2xl", wide ? "max-w-3xl" : "max-w-md")}>
         <div className="flex items-center justify-between px-5 pt-4 pb-2">
           <h2 className="text-base font-semibold">{title}</h2>
           <IconButton icon={X} label={t("Close")} onClick={onClose} />
@@ -232,7 +246,8 @@ export function Modal({ title, onClose, children, footer, wide }: { title: strin
         <div className="space-y-3 overflow-auto px-5 pb-5">{children}</div>
         {footer && <div className="flex justify-end gap-2 border-t border-line bg-surface-2 px-5 py-3">{footer}</div>}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
