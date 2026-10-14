@@ -433,6 +433,8 @@ const pl: Record<string, string> = {
   "Other MySQL/MariaDB and PostgreSQL versions take the next free ports. Saving restarts the affected services and updates the projects' .env / wp-config.php.": "Pozostałe wersje MySQL/MariaDB i PostgreSQL dostają kolejne wolne porty. Zapisanie restartuje zmienione usługi i aktualizuje .env / wp-config.php projektów.",
   "Ports must be numbers from 1 to 65535": "Porty muszą być liczbami od 1 do 65535",
   "Port {port} is used twice": "Port {port} jest użyty dwukrotnie",
+  "Port {port} is used by {name}": "Port {port} jest używany przez {name}",
+  "No free port for {name}": "Brak wolnego portu dla {name}",
   "Database server": "Serwer bazy danych",
   "Default": "Domyślny",
   "Default — {name}": "Domyślny — {name}",

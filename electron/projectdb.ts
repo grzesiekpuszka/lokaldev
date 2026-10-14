@@ -86,7 +86,7 @@ export const serverVersion = (inst: Instance) => (inst.engine === "postgres" ? i
 export function syncProjectDb(x: Project, chosen = false) {
   const pinned = !!x.db || chosen; // chosen: the user just picked this database (also "default") in the project settings
   if (x.db === "sqlite") return useSqlite(x);
-  const inst = instance(projectInstanceId(x.db) ?? "");
+  const inst = instance((pinned ? projectInstanceId(x.db) : projectUses(x).db || projectInstanceId(x.db)) ?? "");
   if (!inst) return;
   if (x.type === "laravel") {
     const env = path.join(x.path, ".env");
@@ -99,7 +99,7 @@ export function syncProjectDb(x: Project, chosen = false) {
       text = fs.readFileSync(env, "utf8");
     }
     const wasPostgres = /^DB_CONNECTION=pgsql/m.test(text);
-    if (!pinned && (wasPostgres || /^DB_CONNECTION=sqlite/m.test(text))) return; // not on the default MySQL-compatible server
+    if (!pinned && /^DB_CONNECTION=sqlite/m.test(text)) return;
     setEnv(env, {
       DB_CONNECTION: laravelConnection(x.path, inst),
       DB_HOST: "127.0.0.1",

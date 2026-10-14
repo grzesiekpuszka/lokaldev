@@ -2,6 +2,7 @@ import path from "node:path";
 import type { DbFamily, DbInstance } from "../src/api";
 import { config, projects, saveConfig } from "./config";
 import { exists } from "./util";
+import { t } from "../src/i18n";
 import { activeSeries, installedSeries, seriesDir } from "./versions";
 
 export type Engine = "mysql" | "mariadb" | "postgres";
@@ -32,6 +33,7 @@ function allocatedPort(id: string, family: DbFamily) {
   const used = new Set([...Object.values(cfg.db_ports), ...Object.values(cfg.ports)]);
   let port = basePort(family) + 1;
   while (used.has(port)) port++;
+  if (port > 65535) throw new Error(t("No free port for {name}", { name: id }));
   saveConfig({ ...cfg, db_ports: { ...cfg.db_ports, [id]: port } });
   return port;
 }

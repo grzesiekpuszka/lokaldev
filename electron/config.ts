@@ -3,6 +3,7 @@ import path from "node:path";
 import type { Config, PortKey, Project, ProjectType } from "../src/api";
 import { exists, p, ROOT, slug, versionKey } from "./util";
 import { setLang, t } from "../src/i18n";
+import { installedSeries } from "./versions";
 
 const defaults: Config = {
   projects_dir: "",
@@ -171,6 +172,8 @@ export function projects(): Project[] {
 
   const php = installedPhp();
   const def = defaultPhp();
+  // links go to Apache, or to Nginx when it's the only web server
+  const web = !installedSeries("apache").length && installedSeries("nginx").length ? "nginx" : "apache";
   // explicit domains are reserved first; a default that collides (foo_bar vs foo-bar) gets a -2, -3… suffix
   const taken = new Set([...dirs.keys()].map((dir) => cfg.projects[dir]?.domain).filter(Boolean));
   const unique = (base: string) => {
@@ -197,7 +200,7 @@ export function projects(): Project[] {
         path: dir,
         type,
         domain,
-        url: `${ssl ? "https" : "http"}://${domain}${portSuffix(ssl, port(ssl ? "apache_https" : "apache_http"))}`,
+        url: `${ssl ? "https" : "http"}://${domain}${portSuffix(ssl, port(`${web}_${ssl ? "https" : "http"}`))}`,
         php: s.php && php.includes(s.php) ? s.php : def,
         node,
         ssl,

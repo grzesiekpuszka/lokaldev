@@ -130,7 +130,7 @@ export async function inspectDump(file: string): Promise<DumpInfo> {
       .split(/\r?\n/)
       .map((l) => l.match(/^((?:mysql|mariadb|postgres)(?:-[\w.]+)?)\/(.+)\.sql(\.gz)?$/))
       .filter((m): m is RegExpMatchArray => !!m)
-      .map((m) => entry(m[1].startsWith("postgres") ? "postgres" : "mysql", m[1], m[2], archiveTarget(m[1])));
+      .map((m) => ({ ...entry(m[1].startsWith("postgres") ? "postgres" : "mysql", m[1], m[2], archiveTarget(m[1])), entry: m[0] }));
     return { file, kind: "archive", family: "mysql", databases, suggested: "" };
   }
 
@@ -267,7 +267,7 @@ export async function importDump(spec: { file: string; databases: string[]; targ
         try {
           const inst = requireInstance(d.instance ?? d.source);
           await ensureRunning(inst);
-          const entry = `${d.source}/${d.name}.sql.gz`;
+          const entry = d.entry ?? `${d.source}/${d.name}.sql.gz`;
           const r = await run(TAR, ["-xf", spec.file, "-C", dir, entry]);
           if (r.code) throw new Error(r.out);
           await recreate(inst, d.name);

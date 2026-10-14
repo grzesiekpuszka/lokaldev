@@ -101,6 +101,10 @@ function setConfig(patch: Partial<Config>) {
       if (!movedPorts.includes(family)) continue;
       next.db_ports = Object.fromEntries(Object.entries(next.db_ports).filter(([id]) => familyOf(parseInstance(id)?.engine ?? "mysql") !== family));
     }
+    // extra database versions keep their ports: a service can't take one of them
+    for (const [id, port] of Object.entries(next.db_ports)) {
+      if (ports.includes(port)) throw new Error(t("Port {port} is used by {name}", { port, name: id }));
+    }
     // services whose binaries or ports change: another active version, MySQL <-> MariaDB, a new port.
     // They are stopped with the old config, so the right binaries and data folders are used for the shutdown.
     const affected = new Set<ServiceId>();
@@ -129,9 +133,9 @@ function setConfig(patch: Partial<Config>) {
     for (const s of restart) await svc.startService(s);
     const used = usedInstanceIds();
     for (const id of wasRunning) if (used.has(id) && instance(id)) await svc.startInstance(id);
-    // projects follow their database port in .env / wp-config.php: pinned ones on any database change, the rest when the MySQL port moves
+    // projects follow their database server in .env / wp-config.php (unpinned ones: the default of the family they use)
     const dbChanged = prev.db_engine !== next.db_engine || movedPorts.some((k) => k === "mysql" || k === "postgres") || ["mysql", "mariadb", "postgres"].some((id) => prev.versions[id as ComponentId] !== next.versions[id as ComponentId]);
-    if (dbChanged) for (const x of projects()) if (x.db || movedPorts.includes("mysql")) syncProjectDb(x);
+    if (dbChanged) for (const x of projects()) syncProjectDb(x);
     // new global database login: running servers switch now, the others when they start; projects on the old login follow
     for (const family of ["mysql", "postgres"] as const) {
       const key = family === "postgres" ? "pg" : "mysql";

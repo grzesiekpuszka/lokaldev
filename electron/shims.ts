@@ -38,7 +38,7 @@ export function syncShims() {
   const db = path.join(binDir(config().db_engine), "bin");
   if (exists(db)) lines.push(`db||${db}`);
   const pg = path.join(binDir("postgres"), "bin");
-  if (exists(pg)) lines.push(`pg||${pg}`);
+  if (exists(pg)) lines.push(`pg||${pg}`, `pgport||${port("postgres")}`);
   // web servers run with lokaldev's config (e.g. "httpd -t", "nginx -t")
   if (exists(binDir("apache"))) lines.push(`httpd||${path.join(binDir("apache"), "bin")}`, `httpdargs||-f "${fwd(p("etc", "httpd.conf"))}"`);
   if (exists(binDir("nginx"))) lines.push(`nginx||${binDir("nginx")}`, `nginxargs||-p "${fwd(binDir("nginx"))}/" -c "${fwd(p("etc", "nginx.conf"))}"`);

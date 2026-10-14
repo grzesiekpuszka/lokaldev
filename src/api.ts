@@ -183,7 +183,7 @@ export interface NodeRelease { version: string; lts: string | null; date: string
 export interface Database { engine: "mysql" | "mariadb" | "postgres"; instance: string; port: number; name: string; system: boolean }
 
 /** A database found in a dump. source: archive folder ("mariadb-11.4"; "mysql"/"postgres" in older archives), otherwise the family. */
-export interface DumpDatabase { family: DbFamily; source: string; name: string; system: boolean; instance: string | null } // instance: where an archive entry goes
+export interface DumpDatabase { family: DbFamily; source: string; name: string; system: boolean; instance: string | null; entry?: string } // instance: where an archive entry goes; entry: its path in the zip
 
 export interface DumpInfo {
   file: string;
