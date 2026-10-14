@@ -241,6 +241,8 @@ const pl: Record<string, string> = {
   "Includes pip and venv": "Zawiera pip i venv",
   "Python version": "Wersja Pythona",
   "About": "O aplikacji",
+  "Installed on this computer; lokaldev uses it.": "Zainstalowany na tym komputerze; lokaldev z niego korzysta.",
+  "No services are running.": "Żadna usługa nie działa.",
   "Updates": "Aktualizacje",
   "Updates available": "Dostępne aktualizacje",
   "Check for updates automatically": "Sprawdzaj aktualizacje automatycznie",

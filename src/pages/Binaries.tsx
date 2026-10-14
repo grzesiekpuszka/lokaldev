@@ -211,13 +211,26 @@ export default function Binaries() {
                   const installed = snap.installed[id];
                   const defaultSeries = defaultComponent(id) ? installed.find((x) => x.version === snap.components[id])?.series : undefined;
                   const series = [...new Set([...(releases[id] ?? []).map((r) => r.series), ...installed.map((x) => x.series)])].sort(newer);
+                  // a Git installed outside lokaldev is used as is; MinGit is only offered when there's none
+                  const external = id === "git" && !installed.length && snap.system_git;
                   return [
                     <li key={id} className="flex items-baseline gap-2 bg-surface-2 px-4 py-1.5">
                       <span className="text-xs font-semibold tracking-wide text-muted uppercase">{name}</span>
-                      {note && <span className="text-xs text-muted">· {t(note)}</span>}
-                      {!releases[id] && <span className="text-xs text-muted">· {t("loading versions…")}</span>}
+                      {note && !external && <span className="text-xs text-muted">· {t(note)}</span>}
+                      {!releases[id] && !external && <span className="text-xs text-muted">· {t("loading versions…")}</span>}
                     </li>,
-                    ...series.map((s) => {
+                    ...(external
+                      ? [
+                          <li key="git-external" className="flex min-h-12 items-center gap-3 px-4 py-2">
+                            <div className="min-w-0 flex-1">
+                              <p className="font-medium">Git {snap.system_git}</p>
+                              <p className="text-xs text-muted">{t("Installed on this computer; lokaldev uses it.")}</p>
+                            </div>
+                            <Badge tone="success">{t("external")}</Badge>
+                          </li>,
+                        ]
+                      : []),
+                    ...(external ? [] : series).map((s) => {
                       const release = releases[id]?.find((r) => r.series === s);
                       const own = installed.find((x) => x.series === s);
                       const key = `${id}-${s}`;

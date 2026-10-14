@@ -152,6 +152,7 @@ export interface Snapshot {
   updates: UpdateState;
   runtime: { electron: string; chrome: string; node: string; timezone: string }; // About; timezone = the one in effect       // installed database servers, defaults first
   node: NodeState;
+  system_git: string | null;     // Git found outside lokaldev (version); then lokaldev doesn't offer its own
   tools: Record<JsTool, { version: string | null; managed: boolean }>; // managed = installed by lokaldev in data\bin
   dirty: boolean;               // web server running with stale config → offer reload
   path_enabled: boolean;         // shims dir is on user PATH
@@ -218,7 +219,7 @@ export const api = {
   // only the changed fields; the backend merges them into the current config (versions are merged per component)
   setConfig: (patch: Partial<Config>) => invoke<void>("set_config", { patch }),
   setProject: (path: string, settings: ProjectSettings) => invoke<void>("set_project", { path, settings }),
-  detectProject: (path: string) => invoke<{ type: ProjectType; docroot: string; name: string }>("detect_project", { path }),
+  detectProject: (path: string, docroot?: string) => invoke<{ type: ProjectType; docroot: string; name: string }>("detect_project", { path, docroot }),
   createProject: (spec: CreateSpec) => invoke<void>("create_project", { spec }), // streams "task-log"
   removeProject: (path: string, deleteFiles: boolean) => invoke<void>("remove_project", { path, deleteFiles }),
 
@@ -268,6 +269,7 @@ export const api = {
   openDir: (path: string) => invoke<void>("open_dir", { path }),
   openTerminal: (path: string) => invoke<void>("open_terminal", { path }),
   openPgAdmin: () => invoke<void>("open_pgadmin"),
+  openPhpMyAdmin: () => invoke<void>("open_phpmyadmin"), // starts it first when it isn't running
   dbConfigGet: (id: string) => invoke<DbConf>("db_config_get", { id }), // per database instance
   // restarts the database if running; rejects with the server's error lines when it doesn't come back
   dbConfigSet: (id: string, change: { raw?: string; settings?: Record<string, string> }) => invoke<void>("db_config_set", { id, change }),

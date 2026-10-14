@@ -35,6 +35,20 @@ export async function jsTools() {
   return cache.value;
 }
 
+let git: { at: number; version: string | null } | undefined;
+
+/** Version of a Git installed outside lokaldev (e.g. Git for Windows) that a fresh terminal finds, or null. */
+export async function systemGit() {
+  if (!git || Date.now() - git.at > 30000) {
+    const ours = [p("shims"), p("bin")].map((d) => d.toLowerCase());
+    const dirs = (await freshPath()).split(";").filter((d) => d && !ours.some((o) => d.toLowerCase().startsWith(o)));
+    const exe = dirs.map((d) => path.join(d, "git.exe")).find(exists);
+    const r = exe ? await run(exe, ["--version"], { timeout: 15000 }) : null;
+    git = { at: Date.now(), version: r && !r.code ? (r.stdout.match(/\d+\.\d+\.\d+/)?.[0] ?? null) : null };
+  }
+  return git.version;
+}
+
 export async function installTool(tool: JsTool) {
   const { repo, asset, exe } = RELEASES[tool];
   const rel = await (await fetch(`https://api.github.com/repos/${repo}/releases/latest`)).json();

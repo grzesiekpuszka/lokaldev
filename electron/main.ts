@@ -13,7 +13,7 @@ import { exportAll, exportDatabase, importDump, inspectDump } from "./dump";
 import { componentReleases, install, phpReleases, uninstall, update } from "./install";
 import { afterUpdate, applyUpdate, checkUpdates, downloadUpdate, forgetBinary, scheduleChecks, updateState } from "./updates";
 import { activeSeries, activeVersion, COMPONENTS, dbRoot, DEFAULT_DB_ROOT, installedSeries, migrateLayout } from "./versions";
-import { installTool, jsTools, uninstallTool } from "./tools";
+import { installTool, jsTools, systemGit, uninstallTool } from "./tools";
 import { freshPath, setUserEnv } from "./env";
 import { nodeDefault, nodeInstall, nodeReleases, nodeState, nodeUninstall, nvmInstall, pinNode } from "./node";
 import * as svc from "./services";
@@ -53,7 +53,7 @@ async function reloadIfStale() {
 }
 
 async function state(): Promise<Snapshot> {
-  const [node, tools, path_enabled, ca_trusted] = await Promise.all([nodeState(), jsTools(), pathEnabled(), caTrusted()]);
+  const [node, tools, system_git, path_enabled, ca_trusted] = await Promise.all([nodeState(), jsTools(), systemGit(), pathEnabled(), caTrusted()]);
   return {
     root: ROOT,
     config: config(),
@@ -67,6 +67,7 @@ async function state(): Promise<Snapshot> {
     runtime: { electron: process.versions.electron, chrome: process.versions.chrome, node: process.versions.node, timezone: timezone() },
     node,
     tools,
+    system_git,
     dirty: svc.dirty(),
     path_enabled,
     ca_trusted,
@@ -196,6 +197,10 @@ function setProject(dir: string, settings: ProjectSettings) {
     if (settings.node !== undefined) pinNode(key, settings.node);
     const { node: _, ...rest } = settings;
     const dbChanged = settings.db !== undefined && (settings.db || "") !== (cfg.projects[key]?.db || "");
+    // a new document root may hold another kind of app (e.g. WordPress in public_html)
+    if (settings.docroot !== undefined && settings.docroot !== cfg.projects[key]?.docroot && cfg.projects[key]?.type) {
+      rest.type = detect(key, settings.docroot).type;
+    }
     saveConfig({ ...cfg, projects: { ...cfg.projects, [key]: { ...cfg.projects[key], ...rest } } });
     const project = projects().find((x) => x.path === key);
     if (dbChanged && project) {
@@ -235,7 +240,7 @@ const handlers: Record<string, (a: any) => unknown> = {
   state: () => state(),
   set_config: ({ patch }: { patch: Partial<Config> }) => setConfig(patch),
   set_project: ({ path, settings }: { path: string; settings: ProjectSettings }) => setProject(path, settings),
-  detect_project: ({ path: dir }: { path: string }) => ({ ...detect(dir), name: path.basename(dir) }),
+  detect_project: ({ path: dir, docroot }: { path: string; docroot?: string }) => ({ ...detect(dir, docroot), name: path.basename(dir) }),
   create_project: ({ spec }: { spec: CreateSpec }) =>
     serial(async () => {
       assertDomainFree(spec.domain, norm(spec.path));
@@ -339,7 +344,8 @@ const handlers: Record<string, (a: any) => unknown> = {
   trust_ca: () => trustCa(),
   open_dir: ({ path: dir }: { path: string }) => shell.openPath(dir).then((err) => err && Promise.reject(new Error(err))),
   open_terminal: ({ path: dir }: { path: string }) => openTerminal(dir),
-  open_pgadmin: () => serial(() => svc.startService("pgadmin")),
+  open_pgadmin: () => openPgAdmin(),
+  open_phpmyadmin: () => openPhpMyAdmin(),
   open_url: ({ url }: { url: string }) => shell.openExternal(url),
   // config editors work per database instance ("mariadb-11.4", "postgres-17")
   db_config_get: ({ id }: { id: string }) => {
@@ -458,6 +464,14 @@ function showWindow() {
 const notifyError = (e: unknown) => balloon(errorText(e));
 
 const startAll = () => serial(() => svc.startAll()).catch(notifyError);
+
+/** Shortcuts (Dashboard, tray): start the tool when it isn't running, then open it. */
+const openPhpMyAdmin = () =>
+  serial(async () => {
+    if (!svc.serviceRunning("phpmyadmin")) await svc.startService("phpmyadmin");
+    await shell.openExternal(`http://127.0.0.1:${config().ports.phpmyadmin}`);
+  });
+const openPgAdmin = () => serial(() => svc.startService("pgadmin"));
 const stopAll = () => serial(svc.stopAll).catch(notifyError);
 
 /** Flags come from the jump list, the login item (--hidden) or a second launch. */
@@ -486,6 +500,9 @@ app.whenReady().then(async () => {
     show: showWindow,
     startAll,
     stopAll,
+    phpMyAdmin: () => openPhpMyAdmin().catch(notifyError),
+    pgAdmin: () => openPgAdmin().catch(notifyError),
+    installed: (id) => !!svc.services().find((s) => s.id === id)?.installed,
     quit: () => app.quit(),
     status: () => {
       const installed = svc.services().filter((s) => s.installed);

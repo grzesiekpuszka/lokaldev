@@ -35,6 +35,12 @@ export default function Dashboard() {
           ) : (
             <Button icon={Play} busy={busy.startAll} disabled={!installed.length} onClick={() => run("startAll", api.startAll)}>{t("Start all")}</Button>
           )}
+          {installed.some((s) => s.id === "phpmyadmin") && (
+            <Button icon={ExternalLink} busy={busy.pma} onClick={() => run("pma", api.openPhpMyAdmin)}>phpMyAdmin</Button>
+          )}
+          {installed.some((s) => s.id === "pgadmin") && (
+            <Button icon={ExternalLink} busy={busy.pgadmin} onClick={() => run("pgadmin", api.openPgAdmin)}>pgAdmin</Button>
+          )}
           <Button variant="primary" icon={Plus} onClick={() => go({ name: "new" })}>{t("New project")}</Button>
         </div>
       </div>
@@ -71,7 +77,8 @@ export default function Dashboard() {
       <section className="mb-10">
         <SectionTitle title={t("Services")} action={() => go({ name: "services" })} />
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {services.map((s) => (
+          {!running && <p className="text-[13px] text-muted">{t("No services are running.")}</p>}
+          {services.filter((s) => s.running).map((s) => (
             <div key={s.id} className="flex items-center gap-3 rounded-xl bg-surface-2 px-4 py-3">
               <div className="min-w-0 flex-1">
                 <p className="truncate font-medium">{s.name}</p>

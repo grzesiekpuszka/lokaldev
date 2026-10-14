@@ -27,6 +27,12 @@ export default function ImportProject({ dir, onClose }: { dir: string; onClose: 
       .catch((e) => (toast(String(e)), onClose()));
   }, [dir]);
 
+  // another document root may hold another kind of app (e.g. WordPress in public_html)
+  const changeDocroot = (value: string) => {
+    setDocroot(value);
+    api.detectProject(dir, value).then((d) => setType(d.type), () => {});
+  };
+
   const isNode = !!type && proxied(type);
   const valid = !!type && /^[a-z0-9.-]+$/i.test(domain) && (isNode || !!php);
 
@@ -82,7 +88,7 @@ export default function ImportProject({ dir, onClose }: { dir: string; onClose: 
           </Field>
           {!isNode && (
             <Field label={t("Document root")} hint={t("Folder served by the web server, e.g. public_html.")}>
-              {(id) => <DocrootInput id={id} base={dir} value={docroot} onChange={setDocroot} />}
+              {(id) => <DocrootInput id={id} base={dir} value={docroot} onChange={changeDocroot} />}
             </Field>
           )}
           {!isNode && (

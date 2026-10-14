@@ -19,15 +19,16 @@ const TOOLS = [
 const SHIMS = p("shims");
 const source = app.isPackaged ? path.join(process.resourcesPath, "shim.exe") : path.join(ROOT, "resources", "shim.exe");
 
+/** shims.txt key a tool resolves through (as in shim.cs). */
+function kindOf(tool: string) {
+  if (tool === "php" || tool === "composer") return "php";
+  if (tool.startsWith("mysql") || tool.startsWith("mariadb")) return "db";
+  if (tool === "psql" || tool.startsWith("pg_") || tool === "createdb" || tool === "dropdb") return "pg";
+  return tool;
+}
+
 /** Copies the shim exes and rewrites shims.txt (kind | project path prefix | binary dir, or a <tool>args / pgport value). */
 export function syncShims() {
-  const exe = fs.readFileSync(source); // compared by content: rebuilt shims often keep the same size
-  for (const tool of TOOLS) {
-    const dst = path.join(SHIMS, `${tool}.exe`);
-    try {
-      if (!exists(dst) || !fs.readFileSync(dst).equals(exe)) fs.writeFileSync(dst, exe);
-    } catch {} // in use; keep the old copy
-  }
   const lines: string[] = [];
   const php = defaultPhp();
   if (php) lines.push(`php||${p("bin", "php", php)}`);
@@ -70,6 +71,17 @@ export function syncShims() {
   const pgLogin = wanted("postgres");
   lines.push(`pguser||${pgLogin.user}`, `pgpassword||${pgLogin.password}`);
   fs.writeFileSync(path.join(SHIMS, "shims.txt"), lines.join("\n"));
+
+  // a shim only exists for tools lokaldev provides; otherwise it would shadow the same tool installed on the system
+  const kinds = new Set(lines.map((l) => l.split("|")[0]));
+  const exe = fs.readFileSync(source); // compared by content: rebuilt shims often keep the same size
+  for (const tool of TOOLS) {
+    const dst = path.join(SHIMS, `${tool}.exe`);
+    try {
+      if (!kinds.has(kindOf(tool)) || (tool === "composer" && !kinds.has("composer"))) fs.rmSync(dst, { force: true });
+      else if (!exists(dst) || !fs.readFileSync(dst).equals(exe)) fs.writeFileSync(dst, exe);
+    } catch {} // in use; keep it as it is
+  }
 }
 
 export const pathEnabled = () => inUserPath(SHIMS);

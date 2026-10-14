@@ -84,18 +84,37 @@ export function defaultPhp() {
   return php.includes(cfg.default_php) ? cfg.default_php : (php.at(-1) ?? "");
 }
 
-export function detect(dir: string): { type: ProjectType; docroot: string } {
+/** The type a folder's own files point to, if any. */
+function typeOf(dir: string): ProjectType | null {
   const has = (f: string) => exists(path.join(dir, f));
   let composer = "";
   try {
     composer = fs.readFileSync(path.join(dir, "composer.json"), "utf8");
   } catch {}
-  if (composer.includes('"laravel/framework"')) return { type: "laravel", docroot: "public" };
-  if (composer.includes('"symfony/framework-bundle"')) return { type: "symfony", docroot: "public" };
-  if (has("wp-config.php") || has("wp-config-sample.php")) return { type: "wordpress", docroot: "" };
-  if (["manage.py", "pyproject.toml", "requirements.txt"].some(has) && !composer && !has("index.php")) return { type: "python", docroot: "" };
-  if (has("package.json") && !composer && !has("index.php")) return { type: "node", docroot: "" };
-  return { type: "custom", docroot: ["public", "public_html", "htdocs", "www", "web"].find(has) ?? "" };
+  if (composer.includes('"laravel/framework"')) return "laravel";
+  if (composer.includes('"symfony/framework-bundle"')) return "symfony";
+  if (has("wp-config.php") || has("wp-config-sample.php")) return "wordpress";
+  if (["manage.py", "pyproject.toml", "requirements.txt"].some(has) && !composer && !has("index.php")) return "python";
+  if (has("package.json") && !composer && !has("index.php")) return "node";
+  return null;
+}
+
+/**
+ * Project type and suggested document root. The document root (given, or the usual public/public_html/… folder) is
+ * checked first, then every folder above it up to the project folder: WordPress in public_html is found there, while
+ * a Laravel app with document root "public" is found by its composer.json one level up.
+ */
+export function detect(dir: string, docroot?: string): { type: ProjectType; docroot: string } {
+  const start = docroot ?? ["public", "public_html", "htdocs", "www", "web"].find((d) => exists(path.join(dir, d))) ?? "";
+  for (let rel = path.normalize(start); ; rel = path.dirname(rel)) {
+    const level = rel === "." ? "" : rel;
+    const type = typeOf(path.join(dir, level));
+    if (type === "laravel" || type === "symfony") return { type, docroot: path.join(level, "public") };
+    if (type === "wordpress") return { type, docroot: level };
+    if (type) return { type, docroot: "" };
+    if (!level) break;
+  }
+  return { type: "custom", docroot: start };
 }
 
 export function projects(): Project[] {
@@ -121,7 +140,7 @@ export function projects(): Project[] {
     .sort(([a], [b]) => a.localeCompare(b, undefined, { sensitivity: "base" }))
     .map(([dir, imported]) => {
       const s = cfg.projects[dir] ?? {};
-      const d = detect(dir);
+      const d = detect(dir, s.docroot);
       const name = path.basename(dir);
       const ssl = s.ssl ?? cfg.ssl_default;
       const domain = s.domain || unique(slug(name));
