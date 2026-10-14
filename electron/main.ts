@@ -14,7 +14,7 @@ import { componentReleases, install, phpReleases, recoverUpdates, uninstall, upd
 import { afterUpdate, applyUpdate, checkUpdates, downloadUpdate, forgetBinary, scheduleChecks, updateState } from "./updates";
 import { activeSeries, activeVersion, COMPONENTS, dbRoot, DEFAULT_DB_ROOT, installedSeries, migrateLayout } from "./versions";
 import { installTool, jsTools, systemGit, uninstallTool } from "./tools";
-import { freshPath, setUserEnv } from "./env";
+import { freshEnvWith, setUserEnv } from "./env";
 import { nodeDefault, nodeInstall, nodeReleases, nodeState, nodeUninstall, nvmInstall, pinNode } from "./node";
 import * as svc from "./services";
 import { pathEnabled, setPath, SHIMS, syncShims } from "./shims";
@@ -255,7 +255,7 @@ function removeProject(dir: string, deleteFiles: boolean) {
 }
 
 async function openTerminal(dir: string) {
-  const env = { ...process.env, PATH: `${SHIMS};${await freshPath()}` };
+  const env = await freshEnvWith(SHIMS);
   const wt = spawn("wt.exe", ["-d", dir], { env, detached: true, stdio: "ignore" });
   wt.on("error", () => spawn("cmd.exe", ["/c", "start", "powershell", "-NoExit"], { cwd: dir, env, detached: true, stdio: "ignore" }));
   wt.unref();

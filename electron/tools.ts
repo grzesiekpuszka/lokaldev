@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import type { JsTool } from "../src/api";
-import { freshPath, setUserEnv, setUserPath, userValue } from "./env";
+import { freshEnv, freshPath, setUserEnv, setUserPath, userValue } from "./env";
 import { download, extract } from "./install";
 import { emit, exists, p, run } from "./util";
 import { t } from "../src/i18n";
@@ -20,7 +20,7 @@ let cache: { at: number; value: Record<JsTool, { version: string | null; managed
 /** Version of each tool: ours from data\bin, otherwise whatever a fresh terminal would find on PATH. */
 export async function jsTools() {
   if (!cache || Date.now() - cache.at > 30000) {
-    const env = { ...process.env, PATH: await freshPath() };
+    const env = await freshEnv();
     const entries = await Promise.all(
       (Object.keys(RELEASES) as JsTool[]).map(async (t) => {
         if (exists(path.join(dir(t), ".version"))) {

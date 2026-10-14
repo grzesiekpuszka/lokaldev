@@ -9,7 +9,7 @@ import { wanted } from "./dbauth";
 import { envValue, password, phpString, serverVersion, setEnv, urlLogin, user } from "./projectdb";
 import { dbCreate } from "./db";
 import { download, extract } from "./install";
-import { freshPath } from "./env";
+import { freshEnvWith } from "./env";
 import { pinNode } from "./node";
 import { startInstance } from "./services";
 import { emit, exists, p } from "./util";
@@ -45,7 +45,7 @@ export async function createProject(spec: CreateSpec) {
   const phpExe = path.join(phpDir, "php.exe");
   const phar = path.join(binDir("composer"), "composer.phar");
   // composer and npm need git for some packages
-  const env = { ...process.env, PATH: `${phpDir};${path.join(binDir("git"), "cmd")};${await freshPath()}`, COMPOSER_NO_INTERACTION: "1" };
+  const env = { ...(await freshEnvWith(phpDir, path.join(binDir("git"), "cmd"))), COMPOSER_NO_INTERACTION: "1" };
   const composer = (args: string[], cwd: string) => {
     if (!exists(phar)) throw new Error(t("Composer isn't installed (Binaries → Tools)"));
     return stream(phpExe, [phar, ...args], cwd, env);

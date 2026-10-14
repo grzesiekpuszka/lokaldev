@@ -11,7 +11,7 @@ import { allInstances, defaultInstanceId, instance, instanceBin, instanceLabel, 
 import { applied as login, applyCredentials } from "./dbauth";
 import { ensureMyIni } from "./myini";
 import { projectUses } from "./projectdb";
-import { freshPath, setUserEnv, userValue } from "./env";
+import { freshEnvWith, setUserEnv, userValue } from "./env";
 import { alive, portOpen, exists, fwd, killTree, p, run, sleep, slug, spawnLogged, tail, tailErrors, waitExit, waitPort } from "./util";
 import { t } from "../src/i18n";
 
@@ -371,7 +371,7 @@ export async function startNode(dir: string) {
   fs.writeFileSync(log, "");
   // Python apps get the project's Python and its .venv first on PATH
   const python = x.type === "python" ? [path.join(dir, ".venv", "Scripts"), x.python ? seriesDir("python", x.python) : binDir("python")] : [];
-  const env = { ...process.env, PATH: [...python, await freshPath()].join(";"), PORT: String(x.node_port), TZ: timezone() };
+  const env = { ...(await freshEnvWith(...python)), PORT: String(x.node_port), TZ: timezone() };
   const c = spawnLogged("cmd.exe", ["/d", "/s", "/c", x.node_cmd], log, { cwd: dir, env });
   procs.set(`node:${dir}`, c);
   await sleep(1500);
