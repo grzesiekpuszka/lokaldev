@@ -38,6 +38,9 @@ export default function Dashboard() {
           {installed.some((s) => s.id === "phpmyadmin") && (
             <Button icon={ExternalLink} busy={busy.pma} onClick={() => run("pma", api.openPhpMyAdmin)}>phpMyAdmin</Button>
           )}
+          {installed.some((s) => s.id === "mailpit") && (
+            <Button icon={ExternalLink} busy={busy.mailpit} onClick={() => run("mailpit", api.openMailpit)}>Mailpit</Button>
+          )}
           {installed.some((s) => s.id === "pgadmin") && (
             <Button icon={ExternalLink} busy={busy.pgadmin} onClick={() => run("pgadmin", api.openPgAdmin)}>pgAdmin</Button>
           )}

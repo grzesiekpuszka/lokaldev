@@ -270,6 +270,7 @@ export const api = {
   openTerminal: (path: string) => invoke<void>("open_terminal", { path }),
   openPgAdmin: () => invoke<void>("open_pgadmin"),
   openPhpMyAdmin: () => invoke<void>("open_phpmyadmin"), // starts it first when it isn't running
+  openMailpit: () => invoke<void>("open_mailpit"), // same
   dbConfigGet: (id: string) => invoke<DbConf>("db_config_get", { id }), // per database instance
   // restarts the database if running; rejects with the server's error lines when it doesn't come back
   dbConfigSet: (id: string, change: { raw?: string; settings?: Record<string, string> }) => invoke<void>("db_config_set", { id, change }),

@@ -95,6 +95,7 @@ export default function ImportProject({ dir, onClose }: { dir: string; onClose: 
             <Field label={t("PHP version")}>
               {(id) => (
                 <Select id={id} value={php} onChange={(e) => setPhp(e.target.value)}>
+                  <option value="none">{t("none")}</option>
                   {snap.php.map((v) => <option key={v} value={v}>PHP {v}</option>)}
                 </Select>
               )}

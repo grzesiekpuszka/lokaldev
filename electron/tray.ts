@@ -9,7 +9,8 @@ export interface TrayActions {
   stopAll: () => void;
   phpMyAdmin: () => void;
   pgAdmin: () => void;
-  installed: (id: "phpmyadmin" | "pgadmin") => boolean;
+  mailpit: () => void;
+  installed: (id: "phpmyadmin" | "pgadmin" | "mailpit") => boolean;
   quit: () => void;
   status: () => string;
 }
@@ -34,7 +35,8 @@ export function createTray(a: TrayActions) {
         { type: "separator" },
         { label: "phpMyAdmin", click: a.phpMyAdmin, visible: a.installed("phpmyadmin") },
         { label: "pgAdmin", click: a.pgAdmin, visible: a.installed("pgadmin") },
-        { type: "separator", visible: a.installed("phpmyadmin") || a.installed("pgadmin") },
+        { label: "Mailpit", click: a.mailpit, visible: a.installed("mailpit") },
+        { type: "separator", visible: (["phpmyadmin", "pgadmin", "mailpit"] as const).some((id) => a.installed(id)) },
         { label: t("Quit"), click: a.quit },
       ]),
     );

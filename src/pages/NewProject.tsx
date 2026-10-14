@@ -37,7 +37,8 @@ export default function NewProject() {
   const [importDir, setImportDir] = useState<string>();
   const [name, setName] = useState("");
   const [path, setPath] = useState<string>();
-  const [php, setPhp] = useState(snap.php.includes(config.default_php) ? config.default_php : (snap.php.at(-1) ?? ""));
+  const defaultPhp = snap.php.includes(config.default_php) ? config.default_php : (snap.php.at(-1) ?? "");
+  const [php, setPhp] = useState(defaultPhp);
   const [node, setNode] = useState("");
   const [python, setPython] = useState("");
   const [nodePort, setNodePort] = useState(3000);
@@ -71,7 +72,7 @@ export default function NewProject() {
 
   const kindLabel = type === "empty" ? t("Empty project") : typeLabels[type];
   const noWeb = !components.apache && !components.nginx;
-  const noPhp = !app && !snap.php.length;
+  const noPhp = !app && type !== "empty" && !snap.php.length;
   const noPython = type === "python" && !snap.installed.python.length;
 
   const chooseType = (type: Kind) => {
@@ -80,6 +81,8 @@ export default function NewProject() {
     setNodeCmd(type === "python" ? "python app.py" : "npm run dev");
     setPath(undefined);
     setDocroot("");
+    setPhp(type === "empty" ? "none" : defaultPhp);
+    setPython(type === "empty" ? "none" : "");
     const mysql = snap.instances.find((x) => x.family === "mysql" && x.default);
     setDatabase((type === "laravel" || type === "wordpress") && mysql ? mysql.id : "none");
   };
@@ -183,7 +186,7 @@ export default function NewProject() {
                 <div className="space-y-1 md:col-span-2">
                   <p className="text-[13px] font-medium">{t("PHP version")}</p>
                   <div role="radiogroup" aria-label={t("PHP version")} className="flex flex-wrap gap-2">
-                    {snap.php.map((v) => (
+                    {[...(type === "empty" ? ["none"] : []), ...snap.php].map((v) => (
                       <button
                         key={v}
                         type="button"
@@ -192,7 +195,7 @@ export default function NewProject() {
                         onClick={() => setPhp(v)}
                         className={cx("h-8 rounded-md border px-3.5 font-medium", php === v ? "border-accent bg-accent-soft text-accent" : "border-line hover:bg-surface-2")}
                       >
-                        PHP {v}
+                        {v === "none" ? t("none") : `PHP ${v}`}
                       </button>
                     ))}
                     {!snap.php.length && <span className="text-muted">{t("No PHP versions installed.")}</span>}
@@ -211,6 +214,7 @@ export default function NewProject() {
                 <Field label={t("Python version")}>
                   {(id) => (
                     <Select id={id} value={python} onChange={(e) => setPython(e.target.value)}>
+                      {type !== "python" && <option value="none">{t("none")}</option>}
                       <option value="">{t("Default — {name}", { name: `Python ${components.python ?? ""}` })}</option>
                       {snap.installed.python.map((x) => <option key={x.series} value={x.series}>Python {x.version}</option>)}
                     </Select>
@@ -295,9 +299,9 @@ export default function NewProject() {
                 [t("Type"), kindLabel],
                 [t("Name"), spec.name],
                 [t("Path"), spec.path],
-                ...(!app ? [["PHP", spec.php || "—"]] : []),
+                ...(!app ? [["PHP", spec.php === "none" ? t("none") : spec.php || "—"]] : []),
                 ["Node.js", spec.node || t("none")],
-                ...(snap.installed.python.length ? [["Python", python || t("default")]] : []),
+                ...(snap.installed.python.length ? [["Python", python === "none" ? t("none") : python || t("default")]] : []),
                 ...(app ? [[t("App"), `${nodeCmd} · port ${nodePort}`]] : []),
                 [t("Database"), database === "none" ? t("none") : database === "sqlite" ? "SQLite" : `${serverName(snap.instances.find((x) => x.id === database)!)} · ${spec.db_name}`],
                 [t("Address"), `${ssl ? "https" : "http"}://${spec.domain}`],

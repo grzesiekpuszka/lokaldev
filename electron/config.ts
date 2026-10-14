@@ -93,7 +93,7 @@ function typeOf(dir: string): ProjectType | null {
   } catch {}
   if (composer.includes('"laravel/framework"')) return "laravel";
   if (composer.includes('"symfony/framework-bundle"')) return "symfony";
-  if (has("wp-config.php") || has("wp-config-sample.php")) return "wordpress";
+  if (["wp-config.php", "wp-config-sample.php", "wp-load.php"].some(has)) return "wordpress";
   if (["manage.py", "pyproject.toml", "requirements.txt"].some(has) && !composer && !has("index.php")) return "python";
   if (has("package.json") && !composer && !has("index.php")) return "node";
   return null;
@@ -151,10 +151,10 @@ export function projects(): Project[] {
       return {
         name,
         path: dir,
-        type: s.type ?? d.type,
+        type: s.type && s.type !== "custom" ? s.type : d.type, // "custom" (also an empty project) follows what the files show
         domain,
         url: `${ssl ? "https" : "http"}://${domain}${portSuffix(ssl, port(ssl ? "apache_https" : "apache_http"))}`,
-        php: s.php && php.includes(s.php) ? s.php : def,
+        php: s.php === "none" ? "" : s.php && php.includes(s.php) ? s.php : def,
         node,
         ssl,
         docroot: s.docroot ?? d.docroot,

@@ -370,7 +370,7 @@ export async function startNode(dir: string) {
   const log = p("logs", `node-${slug(x.name)}.log`);
   fs.writeFileSync(log, "");
   // Python apps get the project's Python and its .venv first on PATH
-  const python = x.type === "python" ? [path.join(dir, ".venv", "Scripts"), x.python ? seriesDir("python", x.python) : binDir("python")] : [];
+  const python = x.type !== "python" ? [] : x.python === "none" ? [path.join(dir, ".venv", "Scripts")] : [path.join(dir, ".venv", "Scripts"), x.python ? seriesDir("python", x.python) : binDir("python")];
   const env = { ...process.env, PATH: [...python, await freshPath()].join(";"), PORT: String(x.node_port), TZ: timezone() };
   const c = spawnLogged("cmd.exe", ["/d", "/s", "/c", x.node_cmd], log, { cwd: dir, env });
   procs.set(`node:${dir}`, c);

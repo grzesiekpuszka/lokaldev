@@ -26,7 +26,7 @@ function Detail({ project: p, back }: { project: Project; back: ReactNode }) {
   const { snap, go, run, busy } = useApp();
   const node = proxied(p.type);
   const [form, setForm] = useState<ProjectSettings>({
-    php: p.php, node: p.node, domain: p.domain, ssl: p.ssl, docroot: p.docroot, node_port: p.node_port, node_cmd: p.node_cmd, db: p.db, python: p.python,
+    php: p.php || (snap.php.length ? "none" : ""), node: p.node, domain: p.domain, ssl: p.ssl, docroot: p.docroot, node_port: p.node_port, node_cmd: p.node_cmd, db: p.db, python: p.python,
   });
   const [removing, setRemoving] = useState(false);
   const set = (patch: ProjectSettings) => setForm((f) => ({ ...f, ...patch }));
@@ -72,7 +72,8 @@ function Detail({ project: p, back }: { project: Project; back: ReactNode }) {
             <Field label={t("PHP version")} hint={!snap.php.length && t("Install PHP in the Binaries tab.")}>
               {(id) => (
                 <Select id={id} value={form.php} onChange={(e) => set({ php: e.target.value })}>
-                  {!snap.php.includes(form.php ?? "") && <option value={form.php}>{form.php || "—"}</option>}
+                  {!snap.php.length && <option value="">—</option>}
+                  {!!snap.php.length && <option value="none">{t("none")}</option>}
                   {snap.php.map((v) => <option key={v} value={v}>PHP {v}</option>)}
                 </Select>
               )}
@@ -90,8 +91,9 @@ function Detail({ project: p, back }: { project: Project; back: ReactNode }) {
             <Field label={t("Python version")} hint={t("Used by python and pip in this project's folder.")}>
               {(id) => (
                 <Select id={id} value={form.python ?? ""} onChange={(e) => set({ python: e.target.value })}>
+                  <option value="none">{t("none")}</option>
                   <option value="">{t("Default — {name}", { name: `Python ${snap.components.python ?? ""}` })}</option>
-                  {form.python && !snap.installed.python.some((x) => x.series === form.python) && <option value={form.python}>{form.python} — {t("not installed")}</option>}
+                  {form.python && form.python !== "none" && !snap.installed.python.some((x) => x.series === form.python) && <option value={form.python}>{form.python} — {t("not installed")}</option>}
                   {snap.installed.python.map((x) => <option key={x.series} value={x.series}>Python {x.version}</option>)}
                 </Select>
               )}
@@ -108,8 +110,9 @@ function Detail({ project: p, back }: { project: Project; back: ReactNode }) {
           >
             {(id) => (
               <Select id={id} value={form.db ?? ""} onChange={(e) => set({ db: e.target.value })}>
+                <option value="none">{t("none")}</option>
                 <option value="">{defaultDb ? t("Default — {name}", { name: `${dbName(defaultDb)} (:${defaultDb.port})` }) : t("Default")}</option>
-                {form.db && form.db !== "sqlite" && !db && <option value={form.db}>{form.db} — {t("not installed")}</option>}
+                {form.db && form.db !== "sqlite" && form.db !== "none" && !db && <option value={form.db}>{form.db} — {t("not installed")}</option>}
                 {(p.type === "laravel" || p.type === "symfony") && <option value="sqlite">SQLite</option>}
                 {snap.instances.filter((x) => x !== defaultDb).map((x) => <option key={x.id} value={x.id}>{dbName(x)} (:{x.port})</option>)}
               </Select>

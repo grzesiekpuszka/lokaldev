@@ -68,6 +68,7 @@ export const serverVersion = (inst: Instance) => (inst.engine === "postgres" ? i
  */
 export function syncProjectDb(x: Project, chosen = false) {
   const pinned = !!x.db || chosen; // chosen: the user just picked this database (also "default") in the project settings
+  if (x.db === "none") return;
   if (x.db === "sqlite") return useSqlite(x);
   const inst = instance(projectInstanceId(x.db) ?? "");
   if (!inst) return;
@@ -143,7 +144,7 @@ export function projectUses(x: Project): Uses {
     family = scheme?.startsWith("postgres") ? "postgres" : scheme === "mysql" ? "mysql" : null;
     mail = s.includes(`smtp://127.0.0.1:${smtp}`);
   } else if (x.type === "wordpress") family = "mysql";
-  return { db: x.db || (family && defaultInstanceId(family)), mail, ...other };
+  return { db: x.db === "none" ? null : x.db || (family && defaultInstanceId(family)), mail, ...other };
 }
 
 /** "user" or "user:password" for a database URL. */

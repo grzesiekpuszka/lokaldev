@@ -3,7 +3,7 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import type { ComponentId, Config, CreateSpec, DbEngine, JsTool, PortKey, ProjectSettings, ServiceId, Snapshot, WebServer } from "../src/api";
-import { config, defaultPhp, detect, installedPhp, norm, projects, saveConfig, timezone } from "./config";
+import { config, defaultPhp, detect, installedPhp, norm, port, projects, saveConfig, timezone } from "./config";
 import { createProject } from "./create";
 import { databases, dbCreate, dbDrop, requireInstance } from "./db";
 import { familyOf, instance, parseInstance, projectInstanceId, usedInstanceIds } from "./instances";
@@ -345,7 +345,8 @@ const handlers: Record<string, (a: any) => unknown> = {
   open_dir: ({ path: dir }: { path: string }) => shell.openPath(dir).then((err) => err && Promise.reject(new Error(err))),
   open_terminal: ({ path: dir }: { path: string }) => openTerminal(dir),
   open_pgadmin: () => openPgAdmin(),
-  open_phpmyadmin: () => openPhpMyAdmin(),
+  open_phpmyadmin: () => openWebTool("phpmyadmin"),
+  open_mailpit: () => openWebTool("mailpit"),
   open_url: ({ url }: { url: string }) => shell.openExternal(url),
   // config editors work per database instance ("mariadb-11.4", "postgres-17")
   db_config_get: ({ id }: { id: string }) => {
@@ -466,10 +467,10 @@ const notifyError = (e: unknown) => balloon(errorText(e));
 const startAll = () => serial(() => svc.startAll()).catch(notifyError);
 
 /** Shortcuts (Dashboard, tray): start the tool when it isn't running, then open it. */
-const openPhpMyAdmin = () =>
+const openWebTool = (id: "phpmyadmin" | "mailpit") =>
   serial(async () => {
-    if (!svc.serviceRunning("phpmyadmin")) await svc.startService("phpmyadmin");
-    await shell.openExternal(`http://127.0.0.1:${config().ports.phpmyadmin}`);
+    if (!svc.serviceRunning(id)) await svc.startService(id);
+    await shell.openExternal(`http://127.0.0.1:${port(id === "mailpit" ? "mailpit_web" : id)}`);
   });
 const openPgAdmin = () => serial(() => svc.startService("pgadmin"));
 const stopAll = () => serial(svc.stopAll).catch(notifyError);
@@ -500,7 +501,8 @@ app.whenReady().then(async () => {
     show: showWindow,
     startAll,
     stopAll,
-    phpMyAdmin: () => openPhpMyAdmin().catch(notifyError),
+    phpMyAdmin: () => openWebTool("phpmyadmin").catch(notifyError),
+    mailpit: () => openWebTool("mailpit").catch(notifyError),
     pgAdmin: () => openPgAdmin().catch(notifyError),
     installed: (id) => !!svc.services().find((s) => s.id === id)?.installed,
     quit: () => app.quit(),
