@@ -38,7 +38,8 @@ export default function ImportProject({ dir, onClose }: { dir: string; onClose: 
   };
 
   const isNode = !!type && proxied(type);
-  const valid = !!type && /^[a-z0-9.-]+$/i.test(domain) && (isNode || !!snap.php.length) && (db === "sqlite" || /^[A-Za-z0-9_$-]+$/.test(dbName));
+  const noDbName = db === "none" || db === "sqlite";
+  const valid = !!type && /^[a-z0-9.-]+$/i.test(domain) && (isNode || !!snap.php.length) && (db === "sqlite" || db === "none" || /^[A-Za-z0-9_$-]+$/.test(dbName));
 
   const submit = () =>
     run("import", async () => {
@@ -113,9 +114,9 @@ export default function ImportProject({ dir, onClose }: { dir: string; onClose: 
               </Select>
             )}
           </Field>
-          <Field label={t("Database server")}>{(id) => <DatabaseSelect id={id} value={db} type={type} onChange={setDb} />}</Field>
-          <Field label={t("Database name")} hint={db !== "sqlite" && t("Created if it doesn't exist.")}>
-            {(id) => <input id={id} className="input" value={db === "sqlite" ? "" : dbName} disabled={db === "sqlite"} onChange={(e) => setDbName(e.target.value.trim())} />}
+          <Field label={t("Database server")}>{(id) => <DatabaseSelect id={id} value={db} type={type} none onChange={setDb} />}</Field>
+          <Field label={t("Database name")} hint={!noDbName && t("Created if it doesn't exist.")}>
+            {(id) => <input id={id} className="input" value={noDbName ? "" : dbName} disabled={noDbName} onChange={(e) => setDbName(e.target.value.trim())} />}
           </Field>
           {isNode && (
             <>
