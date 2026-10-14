@@ -31,18 +31,31 @@ export function run(file: string, args: string[], opts: { cwd?: string; env?: No
   });
 }
 
-// PIDs of everything we spawn, persisted so a crashed session's leftovers can be cleaned up on next start.
-const tracked = new Map<number, string>();
-const saveTracked = () => fs.writeFileSync(p("run.json"), JSON.stringify([...tracked]));
+// Everything we spawn (PID, program, start time), persisted so a crashed session's leftovers can be cleaned up on next start.
+const tracked = new Map<number, [string, number]>();
+const saveTracked = () => fs.writeFileSync(p("run.json"), JSON.stringify([...tracked].map(([pid, [file, at]]) => [pid, file, at])));
 
 export async function cleanupOrphans() {
-  let list: [number, string][] = [];
+  let list: [number, string, number][] = [];
   try {
-    list = JSON.parse(fs.readFileSync(p("run.json"), "utf8"));
+    list = JSON.parse(fs.readFileSync(p("run.json"), "utf8")).filter((x: unknown[]) => x.length === 3); // older entries can't be verified
   } catch {}
-  for (const [pid, image] of list) {
-    const { out } = await run("tasklist", ["/FI", `PID eq ${pid}`, "/FO", "CSV", "/NH"]);
-    if (out.toLowerCase().includes(`"${image.toLowerCase()}"`)) await killTree(pid);
+  if (list.length) {
+    // a PID can be reused by another program: only kill a process with the same program that started at the recorded time
+    const filter = list.map(([pid]) => `ProcessId=${Number(pid)}`).join(" OR ");
+    const { stdout } = await run("powershell", [
+      "-NoProfile",
+      "-Command",
+      `Get-CimInstance Win32_Process -Filter '${filter}' | ForEach-Object { '{0}|{1}|{2}|{3}' -f $_.ProcessId, $_.Name, $_.ExecutablePath, ([DateTimeOffset]$_.CreationDate).ToUnixTimeMilliseconds() }`,
+    ]);
+    for (const line of stdout.split(/\r?\n/).filter(Boolean)) {
+      const [pid, name, exe, created] = line.split("|");
+      const entry = list.find((x) => x[0] === Number(pid));
+      if (!entry) continue;
+      const [, file, at] = entry;
+      const same = path.isAbsolute(file) ? exe.toLowerCase() === file.toLowerCase() : name.toLowerCase() === path.basename(file).toLowerCase();
+      if (same && Math.abs(Number(created) - at) < 15000) await killTree(Number(pid));
+    }
   }
   saveTracked();
 }
@@ -53,7 +66,7 @@ export function spawnLogged(file: string, args: string[], log: string, opts: Spa
   fs.closeSync(fd);
   if (child.pid) {
     const pid = child.pid;
-    tracked.set(pid, path.basename(file));
+    tracked.set(pid, [file, Date.now()]);
     saveTracked();
     child.on("exit", () => {
       tracked.delete(pid);
