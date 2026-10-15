@@ -6,14 +6,14 @@ import { exists, p, ROOT, versionKey } from "./util";
 
 export const COMPONENTS: ComponentId[] = [
   "apache", "nginx", "mysql", "mariadb", "postgres", "mongodb", "redis", "memcached", "mailpit", "phpmyadmin", "composer",
-  "git", "python", "sqlite",
+  "wpcli", "git", "python", "sqlite",
 ];
 type DataEngine = "mysql" | "mariadb" | "postgres" | "mongodb";
 
 /** Release line a version belongs to: installs of one series replace each other, different series live side by side. */
 export function seriesOf(id: ComponentId, version: string) {
   const parts = version.split(".");
-  if (id === "postgres" || id === "mailpit" || id === "sqlite") return parts[0];
+  if (id === "postgres" || id === "mailpit" || id === "sqlite" || id === "wpcli") return parts[0];
   if (id === "composer") return version.startsWith("2.2.") ? "2.2" : parts[0];
   return parts.slice(0, 2).join(".");
 }

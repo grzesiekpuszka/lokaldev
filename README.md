@@ -9,7 +9,7 @@ A portable local development environment for Windows. Every project gets its own
 - **Per-project versions:** PHP, Node.js (via nvm for Windows), Python and the database server are chosen per project.
 - **Databases:** MySQL, MariaDB and PostgreSQL in several versions at once, plus SQLite for Laravel and Symfony. Projects' `.env` / `wp-config.php` follow their database automatically.
 - **Services:** MongoDB, Redis, Memcached, Mailpit, phpMyAdmin and pgAdmin. The matching PHP extensions are installed for you.
-- **Tools:** Git (MinGit), Composer, SQLite CLI, pnpm, Deno and Bun.
+- **Tools:** Git (MinGit), Composer, WP-CLI, SQLite CLI, pnpm, Deno and Bun.
 - **Database tools:** export and import single databases or everything at once, including Laragon / `mysqldump --all-databases` dumps.
 - **Updates:** checks for new lokaldev releases and newer versions of installed binaries, and updates them in place.
 - English and Polish interface.
@@ -57,7 +57,7 @@ All ports can be changed in **Settings → Ports**. Databases use `root` (MySQL/
 
 ## Terminal
 
-Turn on **Settings → Command line → Add tools to the user PATH** to use `php`, `composer`, `mysql`, `psql`, `python`, `pip`, `git`, `redis-cli`, `mongosh` and other tools in any terminal. Inside a project folder they use that project's versions; elsewhere, the defaults. Node.js versions follow the project's `.nvmrc` through nvm for Windows.
+Turn on **Settings → Command line → Add tools to the user PATH** to use `php`, `composer`, `wp`, `mysql`, `psql`, `python`, `pip`, `git`, `redis-cli`, `mongosh` and other tools in any terminal. Inside a project folder they use that project's versions; elsewhere, the defaults. Node.js versions follow the project's `.nvmrc` through nvm for Windows.
 
 ## Updates
 

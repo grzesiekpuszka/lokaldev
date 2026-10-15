@@ -50,7 +50,7 @@ export interface DbInstance {
 export type ServiceId = WebServer | "db" | "postgres" | "mongodb" | "redis" | "memcached" | "mailpit" | "phpmyadmin" | "pgadmin" | `db:${string}`; // "db:<instance>" = any database instance
 export type ComponentId =
   | "apache" | "nginx" | "mysql" | "mariadb" | "postgres" | "mongodb" | "redis" | "memcached" | "mailpit" | "phpmyadmin" | "composer"
-  | "git" | "python" | "sqlite";
+  | "wpcli" | "git" | "python" | "sqlite";
 
 /** Per-project overrides stored in config.json, keyed by absolute project path. Missing fields fall back to defaults. */
 export interface ProjectSettings {

@@ -37,7 +37,10 @@ export const MARKERS: Record<string, string> = {
   phpmyadmin: "config.sample.inc.php",
 };
 
-export const componentDir = (what: string, series: string) => p("bin", what, series);
+// downloaded as a single PHP archive, run by the shims through PHP
+const PHARS: Record<string, string> = { composer: "composer.phar", wpcli: "wp-cli.phar" };
+
+export const componentDir =(what: string, series: string) => p("bin", what, series);
 
 export async function phpReleases(): Promise<(PhpRelease & { zip: string })[]> {
   const data = await json("https://downloads.php.net/~windows/releases/releases.json");
@@ -183,6 +186,12 @@ async function releases(id: ComponentId): Promise<Release[]> {
         urls: [`https://getcomposer.org/download/${version}/composer.phar`],
       }));
     }
+    case "wpcli": {
+      const rel = await json("https://api.github.com/repos/wp-cli/wp-cli/releases/latest");
+      const asset = rel.assets.find((a: any) => /^wp-cli-[\d.]+\.phar$/.test(a.name));
+      const version = rel.tag_name.replace(/^v/, "");
+      return [{ series: seriesOf(id, version), version, note: "", urls: [asset.browser_download_url] }];
+    }
   }
   throw new Error(t("Unknown component: {name}", { name: id }));
 }
@@ -305,9 +314,9 @@ export async function install(what: string, version = "", dest = componentDir(wh
   }
   if (lastError) throw lastError;
   try {
-    if (what === "composer") {
+    if (PHARS[what]) {
       fs.mkdirSync(dest, { recursive: true });
-      fs.renameSync(file, path.join(dest, "composer.phar"));
+      fs.renameSync(file, path.join(dest, PHARS[what]));
     } else {
       emit("progress", { id, stage: "extract" });
       await extract(file, dest, MARKERS[what]);

@@ -18,7 +18,7 @@ static class Shim
 
         // kind = shims.txt key: php, db (MySQL/MariaDB clients), pg (PostgreSQL clients), else the tool itself (httpd, nginx, mailpit)
         string kind = tool;
-        if (tool == "php" || tool == "composer") kind = "php";
+        if (tool == "php" || tool == "composer" || tool == "wp") kind = "php";
         else if (tool.StartsWith("mysql") || tool.StartsWith("mariadb")) kind = "db";
         else if (tool == "psql" || tool.StartsWith("pg_") || tool == "createdb" || tool == "dropdb") kind = "pg";
 
@@ -34,7 +34,7 @@ static class Shim
         if (!File.Exists(program) && kind == "db") program = Path.Combine(bin, OtherName(tool) + ".exe");
 
         string args = RawArgs();
-        if (tool == "composer") args = "\"" + Resolve(lines, "composer", cwd) + "\" " + args;
+        if (tool == "composer" || tool == "wp") args = "\"" + Resolve(lines, tool, cwd) + "\" " + args;
         // e.g. httpd/nginx get lokaldev's config
         string extra = Resolve(lines, tool + "args", cwd);
         if (extra != null) args = extra + " " + args;

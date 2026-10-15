@@ -10,7 +10,7 @@ import { exists, fwd, p, ROOT, run } from "./util";
 import { t } from "../src/i18n";
 
 const TOOLS = [
-  "php", "composer",
+  "php", "composer", "wp",
   "mysql", "mysqldump", "mysqladmin", "mysqlcheck", "mysqlimport",
   "mariadb", "mariadb-dump", "mariadb-admin", "mariadb-check", "mariadb-import",
   "psql", "pg_dump", "pg_dumpall", "pg_restore", "pg_isready", "createdb", "dropdb",
@@ -22,7 +22,7 @@ const source = app.isPackaged ? path.join(process.resourcesPath, "shim.exe") : p
 
 /** shims.txt key a tool resolves through (as in shim.cs). */
 function kindOf(tool: string) {
-  if (tool === "php" || tool === "composer") return "php";
+  if (tool === "php" || tool === "composer" || tool === "wp") return "php";
   if (tool.startsWith("mysql") || tool.startsWith("mariadb")) return "db";
   if (tool === "psql" || tool.startsWith("pg_") || tool === "createdb" || tool === "dropdb") return "pg";
   return tool;
@@ -36,6 +36,8 @@ export function syncShims() {
   for (const x of projects()) if (x.php) lines.push(`php|${`${x.path}\\`.toLowerCase()}|${p("bin", "php", x.php)}`);
   const phar = path.join(binDir("composer"), "composer.phar");
   if (exists(phar)) lines.push(`composer||${phar}`);
+  const wp = path.join(binDir("wpcli"), "wp-cli.phar");
+  if (exists(wp)) lines.push(`wp||${wp}`);
   const db = path.join(binDir(config().db_engine), "bin");
   if (exists(db)) lines.push(`db||${db}`);
   const pg = path.join(binDir("postgres"), "bin");
@@ -79,7 +81,7 @@ export function syncShims() {
   for (const tool of TOOLS) {
     const dst = path.join(SHIMS, `${tool}.exe`);
     try {
-      if (!kinds.has(kindOf(tool)) || (tool === "composer" && !kinds.has("composer"))) fs.rmSync(dst, { force: true });
+      if (!kinds.has(kindOf(tool)) || ((tool === "composer" || tool === "wp") && !kinds.has(tool))) fs.rmSync(dst, { force: true });
       else if (!exists(dst) || !fs.readFileSync(dst).equals(exe)) fs.writeFileSync(dst, exe);
     } catch {} // in use; keep it as it is
   }

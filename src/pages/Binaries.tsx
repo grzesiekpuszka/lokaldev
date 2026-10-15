@@ -11,7 +11,7 @@ const groups: [string, [ComponentId, string, string?][]][] = [
   ["Databases", [["mysql", "MySQL"], ["mariadb", "MariaDB"], ["postgres", "PostgreSQL", "Includes pgAdmin 4"], ["mongodb", "MongoDB", "Includes mongosh"]]],
   ["Cache", [["redis", "Redis", "Windows build by redis-windows"], ["memcached", "Memcached"]]],
   ["Python", [["python", "Python", "Includes pip and venv"]]],
-  ["Tools", [["git", "Git", "MinGit, without bash"], ["composer", "Composer"], ["sqlite", "SQLite"], ["mailpit", "Mailpit"], ["phpmyadmin", "phpMyAdmin"]]],
+  ["Tools", [["git", "Git", "MinGit, without bash"], ["composer", "Composer"], ["wpcli", "WP-CLI"], ["sqlite", "SQLite"], ["mailpit", "Mailpit"], ["phpmyadmin", "phpMyAdmin"]]],
 ];
 
 const jsTools: [JsTool, string, string][] = [
