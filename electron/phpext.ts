@@ -26,25 +26,30 @@ async function peclZip(name: string, php: string) {
   }
 }
 
-/** Puts php_<name>.dll into ext\ (its helper DLLs next to php.exe) and enables it; false when no build exists for that PHP. */
-async function installExtension(name: string, php: string) {
+/** Puts php_<name>.dll into ext\ (its helper DLLs next to php.exe); false when no build exists for that PHP. */
+export async function downloadExtension(name: string, php: string) {
   const dir = p("bin", "php", php);
-  if (!exists(path.join(dir, "ext", `php_${name}.dll`))) {
-    const url = await peclZip(name, php);
-    if (!url) return false;
-    const zip = p("tmp", `php_${name}-${php}.zip`);
-    const tmp = p("tmp", `php_${name}-${php}`);
-    await download(url, zip, `ext-${name}-${php}`);
-    try {
-      await extract(zip, tmp, `php_${name}.dll`);
-      for (const f of fs.readdirSync(tmp).filter((f) => f.toLowerCase().endsWith(".dll"))) {
-        fs.copyFileSync(path.join(tmp, f), f.toLowerCase() === `php_${name}.dll` ? path.join(dir, "ext", f) : path.join(dir, f));
-      }
-    } finally {
-      fs.rmSync(zip, { force: true });
-      fs.rmSync(tmp, { recursive: true, force: true });
-    }
+  if (exists(path.join(dir, "ext", `php_${name}.dll`))) return true;
+  const url = await peclZip(name, php);
+  if (!url) return false;
+  const zip = p("tmp", `php_${name}-${php}.zip`);
+  const tmp = p("tmp", `php_${name}-${php}`);
+  await download(url, zip, `ext-${name}-${php}`);
+  try {
+    await extract(zip, tmp, `php_${name}.dll`);
+    // the DLL last: it marks the extension as installed
+    const dlls = fs.readdirSync(tmp).filter((f) => f.toLowerCase().endsWith(".dll"));
+    for (const f of dlls) if (f.toLowerCase() !== `php_${name}.dll`) fs.copyFileSync(path.join(tmp, f), path.join(dir, f));
+    for (const f of dlls) if (f.toLowerCase() === `php_${name}.dll`) fs.copyFileSync(path.join(tmp, f), path.join(dir, "ext", f));
+  } finally {
+    fs.rmSync(zip, { force: true });
+    fs.rmSync(tmp, { recursive: true, force: true });
   }
+  return true;
+}
+
+async function installExtension(name: string, php: string) {
+  if (!(await downloadExtension(name, php))) return false;
   await phpIniSet(php, { extensions: { [name]: true } });
   return true;
 }

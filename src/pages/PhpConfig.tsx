@@ -108,6 +108,7 @@ export default function PhpConfig({ version, onClose }: { version: string; onClo
                 <span className="font-mono text-[13px]">
                   {e.name}
                   {e.zend && <span className="ml-2 font-sans text-xs text-muted">zend</span>}
+                  {e.download && <span className="ml-2 font-sans text-xs text-muted">{t("Downloaded when turned on")}</span>}
                 </span>
                 <Toggle label={e.name} checked={!!extensions[e.name]} onChange={(on) => setExtensions((x) => ({ ...x, [e.name]: on }))} />
               </li>

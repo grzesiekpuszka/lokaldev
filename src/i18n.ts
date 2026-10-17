@@ -378,6 +378,8 @@ const pl: Record<string, string> = {
   "nvm installation failed (code {code})": "Instalacja nvm nie powiodła się (kod {code})",
   "Choose a projects folder first": "Najpierw wybierz folder projektów",
   "{name} isn't installed": "{name} nie jest zainstalowany",
+  "{name} isn't available for PHP {version}": "{name} nie jest dostępne dla PHP {version}",
+  "Downloaded when turned on": "Pobierane po włączeniu",
   "{name} failed to start:": "{name} nie wystartował:",
   "{name} initialization failed:": "Inicjalizacja {name} nie powiodła się:",
   "phpMyAdmin requires PHP to be installed": "phpMyAdmin wymaga zainstalowanego PHP",

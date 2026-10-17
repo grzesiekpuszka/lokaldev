@@ -162,7 +162,7 @@ export interface Snapshot {
 }
 
 export interface PhpIni {
-  extensions: { name: string; zend: boolean; enabled: boolean }[]; // every php_*.dll in ext/
+  extensions: { name: string; zend: boolean; enabled: boolean; download: boolean }[]; // every php_*.dll in ext/, plus PECL ones downloaded when enabled
   settings: Record<string, string>;                                // effective values of the common directives
   raw: string;
 }

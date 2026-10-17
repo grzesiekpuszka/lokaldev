@@ -23,7 +23,8 @@ import { autoFile, customFile, sitesDir } from "./conf";
 import { cleanupOrphans, errorText, exists, p, ROOT } from "./util";
 import { t } from "../src/i18n";
 import { balloon, createTray, destroyTray, setJumpList } from "./tray";
-import { phpIniGet, phpIniSet } from "./phpini";
+import { DOWNLOADABLE, phpIniGet, phpIniSet } from "./phpini";
+import { downloadExtension } from "./phpext";
 import { myIniGet, myIniSet } from "./myini";
 import { pgConfFile, pgConfGet, pgConfSet } from "./pgconf";
 
@@ -420,6 +421,11 @@ const handlers: Record<string, (a: any) => unknown> = {
   php_ini_get: ({ version }: { version: string }) => phpIniGet(version),
   php_ini_set: ({ version, change }: { version: string; change: Parameters<typeof phpIniSet>[1] }) =>
     serial(async () => {
+      for (const [name, on] of Object.entries(change.extensions ?? {})) {
+        if (on && DOWNLOADABLE.includes(name) && !(await downloadExtension(name, version))) {
+          throw new Error(t("{name} isn't available for PHP {version}", { name, version }));
+        }
+      }
       const warnings = await phpIniSet(version, change);
       // php-cgi workers and phpMyAdmin's built-in server read php.ini only at startup
       await svc.restartPhp(version);

@@ -12,6 +12,8 @@ export const PHP_SETTINGS = [
 
 const ZEND = ["opcache", "xdebug"];
 const SKIP = ["dl_test", "zend_test"];
+// PECL extensions listed even before their DLL is there; enabling one downloads it (phpext.ts)
+export const DOWNLOADABLE = ["imagick"];
 // Overrides live in our own section at the end of the file, so the stock php.ini stays untouched.
 const SECTION = /^\[(lokaldev|lokal\.dev|Lokal|LaraGone)\]\s*$/;
 
@@ -32,8 +34,9 @@ export function phpIniGet(version: string): PhpIni {
     .readdirSync(path.join(dir(version), "ext"))
     .map((f) => f.match(/^php_(\w+)\.dll$/i)?.[1])
     .filter((n): n is string => !!n && !SKIP.includes(n))
-    .map((name) => ({ name, zend: ZEND.includes(name), enabled: lines.some((l) => extLine(name).test(l) && !l.trim().startsWith(";")) }))
-    .sort((a, b) => a.name.localeCompare(b.name));
+    .map((name) => ({ name, zend: ZEND.includes(name), enabled: lines.some((l) => extLine(name).test(l) && !l.trim().startsWith(";")), download: false }));
+  for (const name of DOWNLOADABLE) if (!extensions.some((e) => e.name === name)) extensions.push({ name, zend: false, enabled: false, download: true });
+  extensions.sort((a, b) => a.name.localeCompare(b.name));
   const settings: Record<string, string> = {};
   for (const key of PHP_SETTINGS) {
     const re = new RegExp(`^\\s*${escape(key)}\\s*=\\s*(.*?)\\s*$`, "i");
