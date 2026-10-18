@@ -31,15 +31,22 @@ function stream(file: string, args: string[], cwd: string, env: NodeJS.ProcessEn
   });
 }
 
+const hasFiles = (dir: string): boolean =>
+  fs.readdirSync(dir, { withFileTypes: true }).some((e) => !e.isDirectory() || hasFiles(path.join(dir, e.name)));
+
 export async function createProject(spec: CreateSpec) {
   const dir = norm(spec.path);
   if (!spec.name.trim()) throw new Error(t("Enter a project name"));
   checkDocroot(spec.docroot);
+  // composer create-project needs a truly empty folder; the others accept empty subfolders (e.g. public_html)
+  const composerApp = spec.type === "laravel" || spec.type === "symfony";
   if (spec.import) {
     if (!exists(dir)) throw new Error(t("The folder doesn't exist"));
-  } else if (exists(dir) && fs.readdirSync(dir).length) {
+  } else if (exists(dir) && (composerApp ? fs.readdirSync(dir).length : hasFiles(dir))) {
     throw new Error(t("The target folder isn't empty"));
   }
+  // starters without their own layout go into the chosen document root (e.g. public_html)
+  const web = spec.docroot && ["wordpress", "custom", "empty"].includes(spec.type) ? path.join(dir, spec.docroot) : dir;
 
   const phpDir = p("bin", "php", spec.php || defaultPhp());
   const phpExe = path.join(phpDir, "php.exe");
@@ -109,15 +116,15 @@ export async function createProject(spec: CreateSpec) {
         log(t("Downloading WordPress…"));
         const zip = p("tmp", "wordpress.zip");
         await download("https://wordpress.org/latest.zip", zip, "wordpress");
-        await extract(zip, dir, "wp-load.php");
+        await extract(zip, web, "wp-load.php");
         fs.rmSync(zip, { force: true });
-        let wp = fs.readFileSync(path.join(dir, "wp-config-sample.php"), "utf8")
+        let wp = fs.readFileSync(path.join(web, "wp-config-sample.php"), "utf8")
           .replace("'database_name_here'", () => phpString(spec.db_name || "wordpress"))
           .replace("'username_here'", () => phpString(wanted("mysql").user))
           .replace("'password_here'", () => phpString(wanted("mysql").password))
           .replace("'localhost'", `'127.0.0.1:${inst?.port ?? port("mysql")}'`);
         wp = wp.replace(/put your unique phrase here/g, () => crypto.randomBytes(48).toString("base64url"));
-        fs.writeFileSync(path.join(dir, "wp-config.php"), wp);
+        fs.writeFileSync(path.join(web, "wp-config.php"), wp);
         break;
       }
       case "node":
@@ -164,11 +171,11 @@ HTTPServer(("127.0.0.1", port), Handler).serve_forever()
         }
         break;
       case "empty":
-        fs.mkdirSync(dir, { recursive: true });
+        fs.mkdirSync(web, { recursive: true });
         break;
       default:
-        fs.mkdirSync(dir, { recursive: true });
-        fs.writeFileSync(path.join(dir, "index.php"), "<?php\n\nphpinfo();\n");
+        fs.mkdirSync(web, { recursive: true });
+        fs.writeFileSync(path.join(web, "index.php"), "<?php\n\nphpinfo();\n");
     }
   }
   if (spec.node) pinNode(dir, spec.node);

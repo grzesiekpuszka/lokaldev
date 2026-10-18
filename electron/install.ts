@@ -11,8 +11,8 @@ import { t } from "../src/i18n";
 
 const headers = { "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) lokaldev" };
 
-async function get(url: string) {
-  const r = await fetch(url, { headers });
+async function get(url: string, signal?: AbortSignal) {
+  const r = await fetch(url, { headers, signal });
   if (!r.ok) throw new Error(`${url}: HTTP ${r.status}`);
   return r;
 }
@@ -217,26 +217,37 @@ async function sources(what: string, series: string): Promise<{ url: string; ver
 }
 
 export async function download(url: string, file: string, id: string) {
-  const r = await get(url);
-  const total = Number(r.headers.get("content-length") ?? 0);
+  // a connection that stops sending data never ends on its own
+  const abort = new AbortController();
+  let idle: NodeJS.Timeout | undefined;
+  const alive = () => {
+    clearTimeout(idle);
+    idle = setTimeout(() => abort.abort(new Error(t("The download stopped: {url}", { url }))), 60_000);
+  };
+  alive();
   let done = 0;
   let last = 0;
-  const progress = new Transform({
-    transform(chunk: Buffer, _encoding, callback) {
-      done += chunk.length;
-      if (done - last > 1 << 20) {
-        last = done;
-        emit("progress", { id, done, total });
-      }
-      callback(null, chunk);
-    },
-  });
   try {
+    const r = await get(url, abort.signal);
+    const total = Number(r.headers.get("content-length") ?? 0);
+    const progress = new Transform({
+      transform(chunk: Buffer, _encoding, callback) {
+        alive();
+        done += chunk.length;
+        if (done - last > 1 << 20) {
+          last = done;
+          emit("progress", { id, done, total });
+        }
+        callback(null, chunk);
+      },
+    });
     // pipeline propagates network and disk errors (full disk, access denied) instead of hanging
     await pipeline(Readable.fromWeb(r.body as never), progress, fs.createWriteStream(file));
   } catch (e) {
     fs.rmSync(file, { force: true });
     throw e;
+  } finally {
+    clearTimeout(idle);
   }
 }
 
