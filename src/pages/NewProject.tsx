@@ -36,7 +36,8 @@ export default function NewProject() {
   const app = type === "node" || type === "python"; // runs its own server behind the proxy
   const [importDir, setImportDir] = useState<string>();
   const [name, setName] = useState("");
-  const [path, setPath] = useState<string>();
+  const [path, setPath] = useState<string>(); // typed by hand: used as is
+  const [location, setLocation] = useState(config.projects_dir); // where the project folder (named after the project) is created
   const [php, setPhp] = useState(""); // "" = the default PHP
   const phpDefault = defaultPhp(snap);
   // an empty project starts without a database, the others on the default server
@@ -57,7 +58,7 @@ export default function NewProject() {
   const spec: CreateSpec = {
     type,
     name: name.trim(),
-    path: path ?? (config.projects_dir && s ? `${config.projects_dir.replace(/[\\/]+$/, "")}\\${s}` : ""),
+    path: path ?? (location && s ? `${location.replace(/[\\/]+$/, "")}\\${s}` : ""),
     import: false,
     php: app ? "" : php,
     node,
@@ -94,8 +95,11 @@ export default function NewProject() {
   };
 
   const browse = async () => {
-    const dir = await api.pickFolder(config.projects_dir || undefined);
-    if (dir) setPath(dir);
+    const dir = await api.pickFolder(location || undefined);
+    if (dir) {
+      setLocation(dir);
+      setPath(undefined);
+    }
   };
 
   const valid = [
@@ -175,7 +179,7 @@ export default function NewProject() {
             <StepTitle title={t("Project details")} sub={t("New {type} project", { type: kindLabel })} />
             <div className="grid gap-4 md:grid-cols-2">
               <Field label={t("Name")}>{(id) => <input id={id} className="input" autoFocus value={name} required onChange={(e) => setName(e.target.value)} placeholder={t("my-project")} />}</Field>
-              <Field label={t("Path")} hint={!config.projects_dir && !path && t("Choose a projects folder in Settings first, or enter a path.")}>
+              <Field label={t("Path")} hint={!location && !path ? t("Choose a projects folder in Settings first, or enter a path.") : !path && t("Browse picks the folder in which the project's folder is created.")}>
                 {(id) => (
                   <div className="flex gap-2">
                     <input id={id} className="input font-mono text-[13px]" value={spec.path} onChange={(e) => setPath(e.target.value)} />

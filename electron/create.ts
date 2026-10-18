@@ -43,7 +43,7 @@ export async function createProject(spec: CreateSpec) {
   if (spec.import) {
     if (!exists(dir)) throw new Error(t("The folder doesn't exist"));
   } else if (exists(dir) && (composerApp ? fs.readdirSync(dir).length : hasFiles(dir))) {
-    throw new Error(t("The target folder isn't empty"));
+    throw new Error(t("The target folder {path} isn't empty", { path: dir }));
   }
   // starters without their own layout go into the chosen document root (e.g. public_html)
   const web = spec.docroot && ["wordpress", "custom", "empty"].includes(spec.type) ? path.join(dir, spec.docroot) : dir;
