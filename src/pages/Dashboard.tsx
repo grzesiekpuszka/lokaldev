@@ -1,11 +1,12 @@
 import { ArrowRight, Download, ExternalLink, FolderOpen, FolderKanban, Lock, Play, Plus, RefreshCw, ShieldAlert, Sparkles, Square, Terminal } from "lucide-react";
 import { AppUpdateButton } from "./Settings";
 import { api, proxied } from "../api";
-import { Button, Empty, Notice, StatusPill, Toggle, TypeBadge, cx, serviceStatus, useApp } from "../ui";
+import { useState } from "react";
+import { Button, Empty, Notice, StatusPill, Toggle, TypeBadge, cx, progressText, serviceStatus, useApp } from "../ui";
 import { plural, t } from "../i18n";
 
 export default function Dashboard() {
-  const { snap, go, run, busy, setConfig } = useApp();
+  const { snap, go, run, busy, progress, setConfig } = useApp();
   const { config, projects, services, node } = snap;
   const installed = services.filter((s) => s.installed);
   const running = installed.filter((s) => s.running).length;
@@ -14,6 +15,24 @@ export default function Dashboard() {
 
   const hour = new Date().getHours();
   const greeting = hour < 12 ? t("Good morning") : hour < 18 ? t("Good afternoon") : t("Good evening");
+
+  const [step, setStep] = useState<[string, string]>(); // label, progress id
+  const nothingInstalled = !snap.php.length && !node.installed.length && !Object.values(snap.installed).some((l) => l.length);
+  // widely used versions rather than the newest ones
+  const installRecommended = async () => {
+    for (const [what, version, label] of [["php", "8.3", "PHP 8.3"], ["mysql", "8.4", "MySQL 8.4"], ["apache", "2.4", "Apache 2.4"]] as const) {
+      setStep([label, `${what}-${version}`]);
+      await api.install(what, version);
+    }
+    if (node.nvm !== "ok") {
+      setStep(["nvm", "nvm"]);
+      await api.nvmInstall();
+    }
+    const v = (await api.nodeReleases()).find((r) => r.version.replace(/^v/, "").startsWith("22."))!.version.replace(/^v/, "");
+    setStep([`Node.js ${v}`, `node-${v}`]);
+    await api.nodeInstall(v);
+    await api.nodeDefault(v);
+  };
 
   const chooseDir = async () => {
     const dir = await api.pickFolder();
@@ -49,6 +68,18 @@ export default function Dashboard() {
       </div>
 
       <div className="mb-8 space-y-2 empty:hidden">
+        {(nothingInstalled || busy.recommended) && (
+          <Notice
+            icon={Download}
+            action={
+              <Button size="sm" variant="primary" busy={busy.recommended} onClick={() => run("recommended", installRecommended).finally(() => setStep(undefined))}>
+                {busy.recommended && step ? `${step[0]} · ${progressText(progress[step[1]]) ?? t("Installing…")}` : t("Install recommended")}
+              </Button>
+            }
+          >
+            {t("Nothing is installed yet. Start with PHP 8.3, MySQL 8.4, Apache and Node.js 22.")}
+          </Notice>
+        )}
         {snap.updates.app && (
           <Notice icon={Sparkles} action={<AppUpdateButton size="sm" />}>
             {t("lokaldev {version} is available.", { version: snap.updates.app.version })}{" "}

@@ -4,7 +4,7 @@ import PhpConfig from "./PhpConfig";
 import DbConfig from "./DbConfig";
 import { api, type ComponentId, type ComponentRelease, type DbEngine, type JsTool, type NodeRelease, type PhpRelease } from "../api";
 import { Badge, Button, Modal, PageHeader, cx, progressText, useApp } from "../ui";
-import { t } from "../i18n";
+import { plural, t } from "../i18n";
 
 const groups: [string, [ComponentId, string, string?][]][] = [
   ["Web servers", [["apache", "Apache"], ["nginx", "Nginx"]]],
@@ -68,6 +68,7 @@ export default function Binaries() {
       ...(MYSQL.includes(id) && { db_engine: id as DbEngine }),
     });
   const updates = Object.keys(snap.updates.binaries).map((k) => k.split("/") as [string, string]);
+  const updatesOf = (...ids: string[]) => updates.filter(([what]) => ids.includes(what)).length;
   const updateOne = (what: string, series: string) => run(`update-${what}-${series}`, () => api.updateComponent(what as ComponentId, series));
   const updateAll = async () => {
     for (const [what, series] of updates) await api.updateComponent(what as ComponentId, series);
@@ -95,6 +96,7 @@ export default function Binaries() {
           id="php"
           title="PHP"
           working={working("php")}
+          updates={updatesOf("php")}
           summary={snap.php.length ? `${snap.php.join(", ")} · ${t("default {version}", { version: defaultPhp ?? "" })}` : t("no versions installed")}
         >
           <ul className="divide-y divide-line">
@@ -205,7 +207,7 @@ export default function Binaries() {
         {groups.map(([title, items]) => {
           const active = items.filter(([id]) => snap.components[id] && defaultComponent(id)).map(([id, name]) => `${name} ${snap.components[id]}`);
           return (
-            <Panel key={title} id={title} title={t(title)} working={working(...items.map(([id]) => id))} summary={active.length ? active.join(" · ") : t("none")}>
+            <Panel key={title} id={title} title={t(title)} working={working(...items.map(([id]) => id))} updates={updatesOf(...items.map(([id]) => id))} summary={active.length ? active.join(" · ") : t("none")}>
               <ul className="divide-y divide-line">
                 {items.map(([id, name, note]) => {
                   const installed = snap.installed[id];
@@ -307,7 +309,7 @@ export default function Binaries() {
 }
 
 /** Collapsed whenever the page opens; the summary line shows what's installed. */
-function Panel({ title, summary, working, children }: { id: string; title: string; summary: string; working: boolean; children: ReactNode }) {
+function Panel({ title, summary, working, updates = 0, children }: { id: string; title: string; summary: string; working: boolean; updates?: number; children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const toggle = () => setOpen(!open);
   return (
@@ -315,6 +317,7 @@ function Panel({ title, summary, working, children }: { id: string; title: strin
       <button type="button" aria-expanded={open} onClick={toggle} className="flex w-full items-center gap-3 rounded-xl px-4 py-3.5 text-left hover:bg-surface-2">
         <ChevronRight size={16} className={cx("shrink-0 text-muted transition-transform", open && "rotate-90")} />
         <span className="font-semibold">{title}</span>
+        {updates > 0 && <Badge tone="warning">{plural(updates, "{n} update", "{n} updates")}</Badge>}
         <span className={cx("min-w-0 flex-1 truncate text-right text-[13px]", working ? "text-accent" : "text-muted")}>
           {working ? t("in progress…") : summary}
         </span>
