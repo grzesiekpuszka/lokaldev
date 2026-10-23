@@ -52,23 +52,29 @@ function ca() {
 const caName = () => ca().cert.subject.getField("CN").value as string;
 
 /** A certificate to replace: missing key, unreadable, issued by another CA or expiring within 30 days. */
-function stale(cert: string, key: string, authority: forge.pki.Certificate) {
+function stale(cert: string, key: string, authority: forge.pki.Certificate, names: string[]) {
   if (!exists(cert) || !exists(key)) return true;
   try {
     const c = forge.pki.certificateFromPem(fs.readFileSync(cert, "utf8"));
     forge.pki.privateKeyFromPem(fs.readFileSync(key, "utf8"));
-    return c.issuer.getField("CN")?.value !== authority.subject.getField("CN").value || c.validity.notAfter.getTime() < Date.now() + 30 * 86400e3;
+    const dns = (c.getExtension("subjectAltName") as { altNames?: { type: number; value: string }[] } | null)?.altNames?.filter((n) => n.type === 2).map((n) => n.value) ?? [];
+    return (
+      c.issuer.getField("CN")?.value !== authority.subject.getField("CN").value ||
+      c.validity.notAfter.getTime() < Date.now() + 30 * 86400e3 ||
+      dns.join() !== names.join()
+    );
   } catch {
     return true;
   }
 }
 
-/** Returns cert/key paths for a domain, issuing them from the local CA when missing or outdated. */
-export function certFor(domain: string) {
+/** Returns cert/key paths for a domain and its aliases, issuing them from the local CA when missing or outdated. */
+export function certFor(domain: string, aliases: string[] = []) {
   const cert = p("ssl", `${domain}.crt`);
   const key = p("ssl", `${domain}.key`);
   const authority = ca();
-  if (stale(cert, key, authority.cert)) {
+  const names = [domain, `*.${domain}`, ...aliases];
+  if (stale(cert, key, authority.cert, names)) {
     const pair = keypair();
     const c = newCert(pair.pub, 800);
     c.setSubject([{ name: "commonName", value: domain }]);
@@ -79,7 +85,7 @@ export function certFor(domain: string) {
       { name: "extKeyUsage", serverAuth: true },
       {
         name: "subjectAltName",
-        altNames: [{ type: 2, value: domain }, { type: 2, value: `*.${domain}` }, ...(domain === "localhost" ? [{ type: 7, ip: "127.0.0.1" }] : [])],
+        altNames: [...names.map((value) => ({ type: 2, value })), ...(domain === "localhost" ? [{ type: 7, ip: "127.0.0.1" }] : [])],
       },
       { name: "authorityKeyIdentifier", keyIdentifier: authority.cert.generateSubjectKeyIdentifier().getBytes() },
     ]);

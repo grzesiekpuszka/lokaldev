@@ -59,6 +59,7 @@ export interface ProjectSettings {
   node?: string;       // "22.12.0" (written to .nvmrc via `nvm pin`)
   python?: string;     // "3.13"; unset/"" = the default Python
   domain?: string;     // "blog.test"
+  aliases?: string[];  // more domains of the project: in its vhosts, certificate and the hosts file
   ssl?: boolean;
   docroot?: string;    // relative to project path, "" = project root
   node_port?: number;  // node projects: app port the web server proxies to
@@ -98,7 +99,8 @@ export interface Project {
   path: string;
   type: ProjectType;
   domain: string;
-  url: string;                 // https://… when ssl, else http://…
+  aliases: string[];
+  url: string;               // https://… when ssl, else http://…
   php: string;                 // "" when no PHP installed
   node: string;                // "" when not pinned
   python: string;              // "" = the default Python

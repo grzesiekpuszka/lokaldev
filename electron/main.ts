@@ -198,7 +198,7 @@ async function stopUsers(what: string, series: string) {
 }
 
 function assertDomainFree(domain: string | undefined, dir: string) {
-  const owner = domain && projects().find((x) => x.domain.toLowerCase() === domain && x.path !== dir);
+  const owner = domain && projects().find((x) => (x.domain.toLowerCase() === domain || x.aliases.includes(domain)) && x.path !== dir);
   if (owner) throw new Error(t("Domain {domain} is already used by project {name}", { domain: domain!, name: owner.name }));
 }
 
@@ -218,6 +218,11 @@ function setProject(dir: string, settings: ProjectSettings) {
     const key = norm(dir);
     if (settings.domain !== undefined) settings = { ...settings, domain: checkDomain(settings.domain) };
     assertDomainFree(settings.domain, key);
+    if (settings.aliases) {
+      const domain = settings.domain ?? projects().find((x) => x.path === key)?.domain;
+      settings = { ...settings, aliases: [...new Set(settings.aliases.map(checkDomain))].filter((d) => d !== domain) };
+      for (const d of settings.aliases!) assertDomainFree(d, key);
+    }
     if (settings.docroot !== undefined) checkDocroot(settings.docroot);
     if (settings.node !== undefined) pinNode(key, settings.node);
     const { node: _, ...rest } = settings;

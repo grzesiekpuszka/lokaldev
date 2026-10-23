@@ -82,7 +82,7 @@ function sites(): Project[] {
   const list = projects();
   if (!cfg.projects_dir) return list;
   const localhost: Project = {
-    name: "localhost", path: cfg.projects_dir, type: "custom", domain: "localhost", url: "https://localhost", php: defaultPhp(), node: "",
+    name: "localhost", path: cfg.projects_dir, type: "custom", domain: "localhost", aliases: [], url: "https://localhost", php: defaultPhp(), node: "",
     ssl: true, docroot: "", imported: false, node_port: 0, node_cmd: "", node_running: false, custom_vhost: { apache: false, nginx: false }, db: "", db_name: "", sqlite: null, python: "",
   };
   return [localhost, ...list];
@@ -117,7 +117,7 @@ export async function startServer(server: WebServer) {
     throw new Error(`${t("{name} failed to start:", { name })}\n${tail(log)}\n${tail(p("logs", `${server}_error.log`))}`);
   }
   applied.set(server, stamp(server));
-  await updateHosts(projects().map((x) => x.domain));
+  await updateHosts(projects().flatMap((x) => [x.domain, ...x.aliases]));
 }
 
 /** keepPools: the server is restarted right away, so the PHP workers stay. */

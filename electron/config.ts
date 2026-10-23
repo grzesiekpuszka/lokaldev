@@ -200,6 +200,7 @@ export function projects(): Project[] {
         path: dir,
         type,
         domain,
+        aliases: s.aliases ?? [],
         url: `${ssl ? "https" : "http"}://${domain}${portSuffix(ssl, port(`${web}_${ssl ? "https" : "http"}`))}`,
         php: s.php && php.includes(s.php) ? s.php : def,
         node,
@@ -221,4 +222,4 @@ export function projects(): Project[] {
 
 /** Everything that ends up in the generated web server config; used to detect a stale running server. */
 export const signature = () =>
-  JSON.stringify([projects().map((x) => [x.domain, x.path, x.docroot, x.php, x.ssl, x.type, x.node_port])]);
+  JSON.stringify([projects().map((x) => [x.domain, x.aliases, x.path, x.docroot, x.php, x.ssl, x.type, x.node_port])]);

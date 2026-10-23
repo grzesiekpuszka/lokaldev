@@ -269,6 +269,7 @@ const pl: Record<string, string> = {
   "Update all ({n})": "Aktualizuj wszystkie ({n})",
   "{n} update|{n} updates": "{n} aktualizacja|{n} aktualizacje|{n} aktualizacji",
   "Install recommended": "Zainstaluj rekomendowane",
+  "Additional domains": "Dodatkowe domeny",
   "Nothing is installed yet. Start with PHP 8.3, MySQL 8.4, Apache and Node.js 22.": "Nic nie jest jeszcze zainstalowane. Zacznij od PHP 8.3, MySQL 8.4, Apache i Node.js 22.",
   "Updated to lokaldev {version}.": "Zaktualizowano do lokaldev {version}.",
   "The update couldn't be installed; the previous version was restored.": "Nie udało się zainstalować aktualizacji; przywrócono poprzednią wersję.",

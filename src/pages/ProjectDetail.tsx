@@ -22,19 +22,21 @@ export default function ProjectDetail({ path }: { path: string }) {
   return <Detail project={project} back={back} />;
 }
 
+type Form = Omit<ProjectSettings, "aliases"> & { aliases?: string }; // aliases as typed: "a.test, b.test"
+
 function Detail({ project: p, back }: { project: Project; back: ReactNode }) {
   const { snap, go, run, busy, toast } = useApp();
   const node = proxied(p.type);
   const pinnedPhp = snap.config.projects[p.path]?.php ?? "";
   const phpDefault = defaultPhp(snap);
-  const current: ProjectSettings = {
-    php: snap.php.includes(pinnedPhp) ? pinnedPhp : "", node: p.node, db_name: p.db_name, domain: p.domain, ssl: p.ssl, docroot: p.docroot, node_port: p.node_port, node_cmd: p.node_cmd, db: p.db, python: p.python,
+  const current: Form = {
+    php: snap.php.includes(pinnedPhp) ? pinnedPhp : "", node: p.node, db_name: p.db_name, domain: p.domain, aliases: p.aliases.join(", "), ssl: p.ssl, docroot: p.docroot, node_port: p.node_port, node_cmd: p.node_cmd, db: p.db, python: p.python,
   };
   const [orig, setOrig] = useState(current);
   const [form, setForm] = useState(current);
   const [removing, setRemoving] = useState(false);
-  const set = (patch: ProjectSettings) => setForm((f) => ({ ...f, ...patch }));
-  const key = (s: ProjectSettings, k: string) => s[k as keyof ProjectSettings];
+  const set = (patch: Form) => setForm((f) => ({ ...f, ...patch }));
+  const key = (s: Form, k: string) => s[k as keyof Form];
   // fields the user hasn't touched follow the project (e.g. a name changed in .env); edited ones stay
   const snapshot = JSON.stringify(current);
   useEffect(() => {
@@ -47,8 +49,9 @@ function Detail({ project: p, back }: { project: Project; back: ReactNode }) {
 
   // only what was changed, so a save can't write back values that changed elsewhere meanwhile
   const save = async () => {
-    const changed = Object.fromEntries(Object.entries(form).filter(([k, v]) => v !== key(orig, k)));
-    if (await run("save", () => api.setProject(p.path, changed))) toast(t("Project settings saved."), true);
+    const { aliases, ...changed }: Form = Object.fromEntries(Object.entries(form).filter(([k, v]) => v !== key(orig, k)));
+    const settings: ProjectSettings = { ...changed, ...(aliases !== undefined && { aliases: aliases.split(/[\s,]+/).filter(Boolean) }) };
+    if (await run("save", () => api.setProject(p.path, settings))) toast(t("Project settings saved."), true);
   };
 
   return (
@@ -85,6 +88,11 @@ function Detail({ project: p, back }: { project: Project; back: ReactNode }) {
           <Field label={t("Document root")} hint={t("Relative to the project folder, e.g. public or public_html.")}>
             {(id) => <DocrootInput id={id} base={p.path} value={form.docroot ?? ""} onChange={(docroot) => set({ docroot })} />}
           </Field>
+          <div className="sm:col-span-2">
+            <Field label={t("Additional domains")}>
+              {(id) => <input id={id} className="input" value={form.aliases} placeholder="api.blog.test, admin.blog.test" onChange={(e) => set({ aliases: e.target.value })} />}
+            </Field>
+          </div>
           {!node && (
             <Field label={t("PHP version")} hint={!snap.php.length && t("Install PHP in the Binaries tab.")}>
               {(id) => (
