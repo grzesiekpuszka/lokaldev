@@ -3,7 +3,7 @@
   "private": true,
   "version": "1.0.0-beta.12",
   "type": "module",
-  "packageManager": "pnpm@12.11.2",
+  "packageManager": "pnpm@12.15.0",
   "scripts": {
     "dev": "pnpm build:shim && node scripts/dev.mjs",
     "build:shim": "node scripts/build-shim.mjs",
@@ -23,13 +23,13 @@
     "electron": "^44.7.0",
     "electron-builder": "^26.15.3",
     "esbuild": "^0.28.2",
+    "lucide-react": "^1.55.0",
     "node-forge": "^1.4.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
     "tailwindcss": "^4.3.3",
     "typescript": "~6.0.3",
-    "vite": "^8.0.16",
-    "lucide-react": "^1.55.0",
-    "react": "^19.3.0",
-    "react-dom": "^19.3.0"
+    "vite": "^8.0.16"
   },
   "main": "out/main.cjs",
   "description": "Portable PHP/Node dev environment",
