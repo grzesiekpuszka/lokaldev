@@ -45,6 +45,7 @@ function Detail({ project: p, back }: { project: Project; back: ReactNode }) {
     setOrig(current);
   }, [snapshot]);
   const db = snap.instances.find((x) => x.id === form.db) ?? (!form.db ? snap.instances.find((x) => x.family === "mysql" && x.default) : undefined);
+  const noDb = form.db === "sqlite" || form.db === "none";
   const synced = p.type === "laravel" || p.type === "symfony" || p.type === "wordpress";
   const nodeVersions = [...new Set([...snap.node.installed, ...(p.node ? [p.node] : [])])];
 
@@ -130,10 +131,10 @@ function Detail({ project: p, back }: { project: Project; back: ReactNode }) {
               `127.0.0.1:${db.port} · ${db.family === "postgres" ? snap.config.pg_user : snap.config.mysql_user}${synced ? ` · ${t(p.type === "wordpress" ? "wp-config.php is updated on save." : ".env is updated on save.")}` : ""}`
             }
           >
-            {(id) => <DatabaseSelect id={id} value={form.db ?? ""} type={p.type} onChange={(db) => set({ db })} />}
+            {(id) => <DatabaseSelect id={id} value={form.db ?? ""} type={p.type} none onChange={(db) => set({ db })} />}
           </Field>
-          <Field label={t("Database name")} hint={form.db !== "sqlite" && t("Created on save when it changes.")}>
-            {(id) => <input id={id} className="input" value={form.db === "sqlite" ? "" : form.db_name} disabled={form.db === "sqlite"} onChange={(e) => set({ db_name: e.target.value.trim() })} />}
+          <Field label={t("Database name")} hint={!noDb && t("Created on save when it changes.")}>
+            {(id) => <input id={id} className="input" value={noDb ? "" : form.db_name} disabled={noDb} onChange={(e) => set({ db_name: e.target.value.trim() })} />}
           </Field>
           {snap.installed.python.length > 0 && (
             <Field label={t("Python version")} hint={t("Used by python and pip in this project's folder.")}>

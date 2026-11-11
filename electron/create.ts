@@ -198,7 +198,7 @@ HTTPServer(("127.0.0.1", port), Handler).serve_forever()
         node_cmd: spec.type === "node" || spec.type === "python" ? spec.node_cmd : undefined,
         python: spec.python || undefined,
         // the default MySQL-compatible server is implied; anything else is pinned
-        db: sqlite ? "sqlite" : target && !(target.default && target.family === "mysql") ? target.id : undefined,
+        db: sqlite ? "sqlite" : spec.database === "none" ? "none" : target && !(target.default && target.family === "mysql") ? target.id : undefined,
         db_name: target ? spec.db_name : undefined,
       },
     },

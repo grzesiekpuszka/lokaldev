@@ -64,7 +64,7 @@ export interface ProjectSettings {
   docroot?: string;    // relative to project path, "" = project root
   node_port?: number;  // node projects: app port the web server proxies to
   node_cmd?: string;   // node projects: e.g. "npm run dev"
-  db?: string;         // database instance id ("mysql-8.4"), "sqlite"; unset/"" = the default MySQL-compatible instance
+  db?: string;         // database instance id ("mysql-8.4"), "sqlite", "none"; unset/"" = the default MySQL-compatible instance
   db_name?: string;    // a changed db or db_name creates that database on save
 }
 
