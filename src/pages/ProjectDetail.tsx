@@ -35,6 +35,7 @@ function Detail({ project: p, back }: { project: Project; back: ReactNode }) {
   const [orig, setOrig] = useState(current);
   const [form, setForm] = useState(current);
   const [removing, setRemoving] = useState(false);
+  const [dest, setDest] = useState(p.path);
   const set = (patch: Form) => setForm((f) => ({ ...f, ...patch }));
   const key = (s: Form, k: string) => s[k as keyof Form];
   // fields the user hasn't touched follow the project (e.g. a name changed in .env); edited ones stay
@@ -51,7 +52,14 @@ function Detail({ project: p, back }: { project: Project; back: ReactNode }) {
   const save = async () => {
     const { aliases, ...changed }: Form = Object.fromEntries(Object.entries(form).filter(([k, v]) => v !== key(orig, k)));
     const settings: ProjectSettings = { ...changed, ...(aliases !== undefined && { aliases: aliases.split(/[\s,]+/).filter(Boolean) }) };
-    if (await run("save", () => api.setProject(p.path, settings))) toast(t("Project settings saved."), true);
+    const moved = dest.trim() !== p.path;
+    const saved = await run("save", async () => {
+      await api.setProject(p.path, settings);
+      if (moved) await api.moveProject(p.path, dest);
+    });
+    if (!saved) return;
+    toast(t("Project settings saved."), true);
+    if (moved) go({ name: "projects" });
   };
 
   return (
@@ -82,7 +90,9 @@ function Detail({ project: p, back }: { project: Project; back: ReactNode }) {
       <Card title={t("Settings")} className="mb-4">
         <div className="grid gap-4 p-4 sm:grid-cols-2">
           <div className="sm:col-span-2">
-            <Field label={t("Path")}>{(id) => <input id={id} className="input" value={p.path} readOnly />}</Field>
+            <Field label={t("Path")} hint={dest.trim() !== p.path && t("Only the project's path changes; move or rename its folder yourself.")}>
+              {(id) => <input id={id} className="input" value={dest} onChange={(e) => setDest(e.target.value)} />}
+            </Field>
           </div>
           <Field label={t("Domain")}>{(id) => <input id={id} className="input" value={form.domain} onChange={(e) => set({ domain: e.target.value })} />}</Field>
           <Field label={t("Document root")} hint={t("Relative to the project folder, e.g. public or public_html.")}>

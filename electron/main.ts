@@ -248,6 +248,30 @@ function setProject(dir: string, settings: ProjectSettings) {
   });
 }
 
+/** Points the project's settings at another folder; the files are moved by the user. */
+function moveProject(dir: string, to: string) {
+  return serial(async () => {
+    const key = norm(dir);
+    const dest = norm(to.trim());
+    const cfg = config();
+    const project = projects().find((x) => x.path === key);
+    if (!project) throw new Error(t("This project doesn't exist"));
+    if (!path.isAbsolute(to.trim())) throw new Error(t("Enter a full path, e.g. D:\\Projects\\blog"));
+    if (dest.toLowerCase() === key.toLowerCase()) return;
+    if (Object.keys(cfg.projects).some((x) => x.toLowerCase() === dest.toLowerCase())) throw new Error(t("{path} is already a project", { path: dest }));
+    await svc.stopNode(key);
+    const { [key]: settings, ...rest } = cfg.projects;
+    const inDir = cfg.projects_dir && path.dirname(dest).toLowerCase() === norm(cfg.projects_dir).toLowerCase();
+    saveConfig({
+      ...cfg,
+      // domain and database name stay, otherwise they would follow the new folder name
+      projects: { ...rest, [dest]: { ...settings, domain: project.domain, db_name: project.db_name } },
+      imported: [...cfg.imported.filter((x) => norm(x) !== key), ...(inDir ? [] : [dest])],
+    });
+    await reloadIfStale();
+  });
+}
+
 function removeProject(dir: string, deleteFiles: boolean) {
   return serial(async () => {
     const key = norm(dir);
@@ -291,6 +315,7 @@ const handlers: Record<string, (a: any) => unknown> = {
       syncShims();
       for (const s of svc.WEB_SERVERS) if (activeVersion(s)) await svc.startServer(s);
     }),
+  move_project: ({ path, to }: { path: string; to: string }) => moveProject(path, to),
   remove_project: ({ path, deleteFiles }: { path: string; deleteFiles: boolean }) => removeProject(path, deleteFiles),
 
   check_updates: () => checkUpdates(),

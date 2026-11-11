@@ -225,6 +225,7 @@ export const api = {
   setProject: (path: string, settings: ProjectSettings) => invoke<void>("set_project", { path, settings }),
   detectProject: (path: string, docroot?: string) => invoke<{ type: ProjectType; docroot: string; name: string; db_name: string }>("detect_project", { path, docroot }),
   createProject: (spec: CreateSpec) => invoke<void>("create_project", { spec }), // streams "task-log"
+  moveProject: (path: string, to: string) => invoke<void>("move_project", { path, to }),
   removeProject: (path: string, deleteFiles: boolean) => invoke<void>("remove_project", { path, deleteFiles }),
 
   startService: (id: ServiceId) => invoke<void>("start_service", { id }),
